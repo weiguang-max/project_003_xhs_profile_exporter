@@ -1,0 +1,36 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="18" y1="14" x2="110" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F9FCFF"/>
+      <stop offset="0.42" stop-color="#D9F0FF"/>
+      <stop offset="1" stop-color="#F0E7FF"/>
+    </linearGradient>
+    <linearGradient id="lens" x1="38" y1="35" x2="88" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22D3EE"/>
+      <stop offset="0.55" stop-color="#0A84FF"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="spark" x1="89" y1="25" x2="111" y2="47" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFE08A"/>
+      <stop offset="1" stop-color="#FF9F0A"/>
+    </linearGradient>
+    <filter id="softShadow" x="6" y="6" width="116" height="116" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0A84FF" flood-opacity="0.18"/>
+      <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#000000" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#bg)"/>
+  <rect x="9" y="9" width="110" height="110" rx="25" stroke="white" stroke-opacity="0.85" stroke-width="2"/>
+  <g filter="url(#softShadow)">
+    <path d="M39 38.5C39 33.2533 43.2533 29 48.5 29H80.5C85.7467 29 90 33.2533 90 38.5V84.5C90 89.7467 85.7467 94 80.5 94H48.5C43.2533 94 39 89.7467 39 84.5V38.5Z" fill="white" fill-opacity="0.92"/>
+    <path d="M50 46H78" stroke="#A1A1AA" stroke-width="5" stroke-linecap="round"/>
+    <path d="M50 61H72" stroke="#D4D4D8" stroke-width="5" stroke-linecap="round"/>
+    <path d="M50 76H66" stroke="#D4D4D8" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="75" cy="72" r="18" fill="url(#lens)" fill-opacity="0.96"/>
+    <circle cx="75" cy="72" r="11" fill="white" fill-opacity="0.24"/>
+    <path d="M87.5 84.5L101 98" stroke="#1D1D1F" stroke-opacity="0.72" stroke-width="8" stroke-linecap="round"/>
+    <path d="M88 84L101.5 97.5" stroke="white" stroke-opacity="0.7" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <path d="M100 22L103.8 32.2L114 36L103.8 39.8L100 50L96.2 39.8L86 36L96.2 32.2L100 22Z" fill="url(#spark)"/>
+  <circle cx="31" cy="96" r="5" fill="#34C759"/>
+</svg>
