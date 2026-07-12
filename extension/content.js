@@ -4,6 +4,8 @@
   if (window.__xhsBloggerCollectorLoaded) return;
   window.__xhsBloggerCollectorLoaded = true;
 
+  const NOTE_UTILS = globalThis.XHS_NOTE_UTILS;
+
   const PROFILE_PATH_RE = /^\/user\/profile\/[^/?#]+/;
   const NOTE_PATH_RE = /^\/(?:explore|discovery\/item)\/([^/?#]+)/;
   const PROFILE_NOTE_PATH_RE = /^\/user\/profile\/[^/?#]+\/([^/?#]+)/;
@@ -19,6 +21,10 @@
     done: false,
     stopped: false,
     importingFeishu: false,
+    capturingDetails: false,
+    detailCurrent: 0,
+    detailTotal: 0,
+    detailRunToken: 0,
     error: "",
     message: "请打开博主主页再开始采集。",
     limit: 300,
@@ -313,12 +319,17 @@
       state.seen.add(url);
       state.candidates.push({
         order: state.nextOrder,
+        noteId: NOTE_UTILS.noteIdFromUrl(url),
         author: state.author || "",
         title,
         likes: likes === null ? "" : likes,
         noteForm,
         url,
         cover,
+        coverUrl: cover,
+        content: "",
+        detailStatus: "idle",
+        detailError: "",
       });
       state.nextOrder += 1;
       added += 1;
@@ -618,9 +629,8 @@
 
         .toolbar {
           display: grid;
-          grid-template-columns: 54px 64px 42px 64px 64px;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           align-items: center;
-          justify-content: end;
           gap: 5px;
           margin: 12px 0 8px;
         }
@@ -771,6 +781,12 @@
           background: rgba(255, 255, 255, 0.92);
           border: 1px solid var(--line);
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+          cursor: pointer;
+        }
+
+        .item:hover {
+          border-color: var(--blue);
+          box-shadow: 0 4px 12px rgba(0, 122, 255, 0.12);
         }
 
         .rank {
@@ -886,6 +902,7 @@
               <option value="视频">视频</option>
             </select>
             <button class="small" data-action="sort" type="button" disabled>点赞排序</button>
+            <button class="small" data-action="capture-details" type="button" disabled>抓取正文</button>
             <button class="small" data-action="clear" type="button">清空</button>
             <button class="small" data-action="export" type="button" disabled>导出 Excel</button>
             <button class="small" data-action="import-feishu" type="button" disabled>导入飞书</button>
@@ -921,6 +938,7 @@
       close: shadow.querySelector("[data-action='close']"),
       start: shadow.querySelector("[data-action='start']"),
       sort: shadow.querySelector("[data-action='sort']"),
+      captureDetails: shadow.querySelector("[data-action='capture-details']"),
       clear: shadow.querySelector("[data-action='clear']"),
       export: shadow.querySelector("[data-action='export']"),
       saveFeishu: shadow.querySelector("[data-action='save-feishu']"),
@@ -951,6 +969,13 @@
     });
     els.clear.addEventListener("click", clearRows);
     els.export.addEventListener("click", exportExcel);
+    els.captureDetails.addEventListener("click", () => {
+      if (state.capturingDetails) {
+        stopDetailCapture();
+      } else {
+        captureFilteredDetails();
+      }
+    });
     els.saveFeishu.addEventListener("click", saveFeishuConfig);
     els.importFeishu.addEventListener("click", importFeishu);
     for (const tab of els.pageTabs) {
@@ -962,8 +987,12 @@
     els.limit.addEventListener("input", render);
     els.list.addEventListener("click", (event) => {
       const button = event.target.closest("[data-delete-url]");
-      if (!button) return;
-      deleteRow(button.getAttribute("data-delete-url"));
+      if (button) {
+        deleteRow(button.getAttribute("data-delete-url"));
+        return;
+      }
+      const item = event.target.closest("[data-note-url]");
+      if (item) openNoteDetail(item.getAttribute("data-note-url"));
     });
 
     render();
@@ -1008,6 +1037,10 @@
     state.running = false;
     state.done = false;
     state.stopped = false;
+    state.capturingDetails = false;
+    state.detailCurrent = 0;
+    state.detailTotal = 0;
+    state.detailRunToken += 1;
     state.error = "";
     state.message = "";
     state.limit = limit;
@@ -1019,6 +1052,7 @@
   }
 
   async function startCollect() {
+    if (state.capturingDetails) return;
     const limit = numberValue(els.limit.value, 300, 1, 5000);
     const minLikes = numberValue(els.minLikes.value, 0, 0, 999999999);
     els.limit.value = String(limit);
@@ -1109,8 +1143,207 @@
     render();
   }
 
+  function findNoteAnchor(row) {
+    const noteId = row.noteId || NOTE_UTILS.noteIdFromUrl(row.url);
+    if (!noteId) return null;
+
+    for (const anchor of document.querySelectorAll("a[href]")) {
+      const card = cardForAnchor(anchor);
+      if (
+        card &&
+        isVisible(card) &&
+        NOTE_UTILS.noteIdFromUrl(anchor.getAttribute("href")) === noteId
+      ) {
+        return anchor;
+      }
+    }
+    return null;
+  }
+
+  function visibleDetailMask(noteId) {
+    return [...document.querySelectorAll(".note-detail-mask[note-id]")].find(
+      (mask) => isVisible(mask) && (!noteId || mask.getAttribute("note-id") === noteId)
+    ) || null;
+  }
+
+  function waitForDetail(noteId, timeoutMs = 8000) {
+    const startedAt = Date.now();
+    return new Promise((resolve, reject) => {
+      const check = () => {
+        const mask = visibleDetailMask(noteId);
+        if (mask) {
+          const data = NOTE_UTILS.extractDetailData(mask);
+          if (data && (data.title || data.content || data.coverUrl)) {
+            resolve(data);
+            return;
+          }
+        }
+
+        if (Date.now() - startedAt >= timeoutMs) {
+          reject(new Error("详情加载超时。"));
+          return;
+        }
+        window.setTimeout(check, 100);
+      };
+      check();
+    });
+  }
+
+  function waitForDetailClosed(timeoutMs = 4000) {
+    const startedAt = Date.now();
+    return new Promise((resolve) => {
+      const check = () => {
+        if (!visibleDetailMask()) {
+          resolve();
+          return;
+        }
+        if (Date.now() - startedAt >= timeoutMs) {
+          resolve();
+          return;
+        }
+        window.setTimeout(check, 100);
+      };
+      check();
+    });
+  }
+
+  function closeNoteDetail() {
+    const mask = visibleDetailMask();
+    if (!mask) return;
+
+    const closeButton = [...mask.querySelectorAll(".close-circle, .close-box")].find(isVisible);
+    if (closeButton) {
+      closeButton.click();
+      return;
+    }
+
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Escape",
+      code: "Escape",
+      keyCode: 27,
+      which: 27,
+      bubbles: true,
+    }));
+  }
+
+  async function openNoteDetail(url) {
+    if (state.running || state.capturingDetails) return;
+    if (!isProfilePage()) {
+      state.error = "请在小红书博主主页中定位笔记。";
+      render();
+      return;
+    }
+
+    const row = state.candidates.find((item) => item.url === url);
+    if (!row) return;
+
+    closeNoteDetail();
+    await waitForDetailClosed();
+    const anchor = findNoteAnchor(row);
+    if (!anchor) {
+      state.error = "当前页面找不到这条笔记卡片，请先滚动加载它。";
+      render();
+      return;
+    }
+
+    anchor.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    await sleep(250);
+    anchor.click();
+    try {
+      await waitForDetail(row.noteId);
+      state.error = "";
+      state.message = `已定位到：${row.title || "这条笔记"}`;
+    } catch (error) {
+      state.error = error.message || String(error);
+    }
+    render();
+  }
+
+  function stopDetailCapture() {
+    state.capturingDetails = false;
+    state.detailRunToken += 1;
+    state.message = "正在结束当前笔记，抓取任务即将停止。";
+    render();
+  }
+
+  async function captureFilteredDetails() {
+    if (state.running || state.capturingDetails) return;
+    if (!isProfilePage()) {
+      state.error = "请先打开小红书博主主页。";
+      render();
+      return;
+    }
+
+    const rows = displayRows();
+    if (!rows.length) {
+      state.error = "没有可抓取的筛选结果。";
+      render();
+      return;
+    }
+
+    state.capturingDetails = true;
+    state.detailCurrent = 0;
+    state.detailTotal = rows.length;
+    state.detailRunToken += 1;
+    const token = state.detailRunToken;
+    state.error = "";
+    state.message = `准备抓取 ${rows.length} 条笔记正文和封面链接。`;
+    render();
+
+    try {
+      closeNoteDetail();
+      await waitForDetailClosed();
+
+      for (let index = 0; index < rows.length; index += 1) {
+        if (!state.capturingDetails || token !== state.detailRunToken) break;
+
+        const row = rows[index];
+        state.detailCurrent = index + 1;
+        row.detailStatus = "capturing";
+        row.detailError = "";
+        state.message = `正在抓取第 ${index + 1}/${rows.length} 条：${row.title || "未识别标题"}`;
+        render();
+
+        try {
+          const anchor = findNoteAnchor(row);
+          if (!anchor) throw new Error("当前页面找不到笔记卡片。");
+          anchor.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+          await sleep(250);
+          anchor.click();
+
+          const data = await waitForDetail(row.noteId);
+          row.title = data.title || row.title;
+          row.content = data.content || "";
+          row.coverUrl = data.coverUrl || row.coverUrl || row.cover || "";
+          row.cover = row.coverUrl || row.cover;
+          row.detailStatus = "done";
+          row.detailError = "";
+        } catch (error) {
+          row.detailStatus = "error";
+          row.detailError = error.message || String(error);
+        } finally {
+          closeNoteDetail();
+          await waitForDetailClosed();
+        }
+        render();
+      }
+    } catch (error) {
+      state.error = error.message || String(error);
+    } finally {
+      const stopped = !state.capturingDetails || token !== state.detailRunToken;
+      state.capturingDetails = false;
+      if (stopped) {
+        state.message = "已停止正文抓取。";
+      } else {
+        state.message = `正文抓取完成：${rows.filter((row) => row.detailStatus === "done").length}/${rows.length} 条成功。`;
+      }
+      render();
+    }
+  }
+
   function clearRows() {
     if (state.running) stopCollect();
+    if (state.capturingDetails) stopDetailCapture();
     state.candidates = [];
     state.seen = new Set();
     state.nextOrder = 1;
@@ -1173,6 +1406,8 @@
       noteForm: row.noteForm || "图文",
       likes: Number.isFinite(row.likes) ? row.likes : "",
       url: row.url || "",
+      content: row.content || "",
+      coverUrl: row.coverUrl || row.cover || "",
     }));
   }
 
@@ -1257,19 +1492,24 @@
     els.summary.textContent = state.candidates.length
       ? `已采集 ${state.candidates.length} 条候选，筛选出 ${visibleRows.length} 条`
       : "已采集 0 条候选笔记";
-    els.scroll.textContent = state.running
-      ? `自动滚动中：已滚动 ${state.scrollsUsed} 次，候选目标 ${state.limit} 条`
-      : `先采集 ${state.limit} 条候选，再按点赞和内容类型筛选`;
+    els.scroll.textContent = state.capturingDetails
+      ? `正文抓取中：第 ${state.detailCurrent}/${state.detailTotal} 条`
+      : state.running
+        ? `自动滚动中：已滚动 ${state.scrollsUsed} 次，候选目标 ${state.limit} 条`
+        : `先采集 ${state.limit} 条候选，再按点赞和内容类型筛选`;
     els.message.textContent = state.error || state.message || "";
     els.message.classList.toggle("error", Boolean(state.error));
     els.feishuMessage.textContent = state.error || state.message || "";
     els.feishuMessage.classList.toggle("error", Boolean(state.error));
     els.start.textContent = state.running ? "停止采集" : "开始采集 博主笔记";
-    els.export.disabled = visibleRows.length === 0;
-    els.importFeishu.disabled = visibleRows.length === 0 || state.importingFeishu;
+    els.start.disabled = state.capturingDetails;
+    els.captureDetails.disabled = visibleRows.length === 0 || state.running;
+    els.captureDetails.textContent = state.capturingDetails ? "停止抓取" : "抓取正文";
+    els.export.disabled = visibleRows.length === 0 || state.capturingDetails;
+    els.importFeishu.disabled = visibleRows.length === 0 || state.importingFeishu || state.capturingDetails;
     els.importFeishu.textContent = state.importingFeishu ? "导入中..." : "导入飞书";
-    els.clear.disabled = state.candidates.length === 0 && !state.running;
-    els.sort.disabled = visibleRows.length < 2;
+    els.clear.disabled = state.capturingDetails || (state.candidates.length === 0 && !state.running);
+    els.sort.disabled = state.capturingDetails || visibleRows.length < 2;
     els.sort.textContent = state.sortByLikes ? "恢复顺序" : "点赞排序";
     els.sort.classList.toggle("active", state.sortByLikes);
 
@@ -1284,17 +1524,24 @@
         const author = escapeHtml(row.author || state.author || "未识别作者");
         const likes = row.likes === "" ? "-" : String(row.likes);
         const noteForm = escapeHtml(row.noteForm || "图文");
+        const detailStatus = row.detailStatus === "capturing"
+          ? "抓取中..."
+          : row.detailStatus === "done"
+            ? "正文已抓取"
+            : row.detailStatus === "error"
+              ? "正文抓取失败"
+              : "";
         const cover = row.cover
           ? `<img class="thumb" src="${escapeHtml(row.cover)}" alt="">`
           : '<div class="thumb"></div>';
         return `
-          <article class="item">
+          <article class="item" data-note-url="${escapeHtml(row.url)}">
             <div class="rank">${index + 1}</div>
             ${cover}
             <div class="meta">
               <div class="note-title" title="${title}">${title}</div>
               <div class="note-author">${author}</div>
-              <div class="note-likes">${noteForm} · 点赞数: ${escapeHtml(likes)}</div>
+              <div class="note-likes">${noteForm} · 点赞数: ${escapeHtml(likes)}${detailStatus ? ` · ${escapeHtml(detailStatus)}` : ""}</div>
             </div>
             <button class="delete" type="button" data-delete-url="${escapeHtml(row.url)}">删除</button>
           </article>
@@ -1331,16 +1578,20 @@
       笔记形式: row.noteForm || "图文",
       点赞: Number.isFinite(row.likes) ? row.likes : "",
       原文链接: row.url || "",
+      正文: row.content || "",
+      封面链接: row.coverUrl || "",
     }));
     const workbook = xlsx.utils.book_new();
     const worksheet = xlsx.utils.json_to_sheet(rows, {
-      header: ["标题", "作者", "笔记形式", "点赞", "原文链接"],
+      header: ["标题", "作者", "笔记形式", "点赞", "原文链接", "正文", "封面链接"],
     });
     worksheet["!cols"] = [
       { wch: 42 },
       { wch: 18 },
       { wch: 10 },
       { wch: 12 },
+      { wch: 72 },
+      { wch: 60 },
       { wch: 72 },
     ];
     xlsx.utils.book_append_sheet(workbook, worksheet, "小红书笔记");

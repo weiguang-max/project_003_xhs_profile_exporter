@@ -2,7 +2,7 @@
 
 const FEISHU_API = "https://open.feishu.cn/open-apis";
 const FEISHU_BATCH_SIZE = 500;
-const REQUIRED_FIELDS = ["标题", "作者", "笔记形式", "点赞", "原文链接"];
+const REQUIRED_FIELDS = ["标题", "作者", "笔记形式", "点赞", "原文链接", "正文", "封面链接"];
 const FEISHU_URL_FIELD_TYPE = 15;
 
 async function sendToggle(tab) {
@@ -15,7 +15,7 @@ async function sendToggle(tab) {
   } catch (_) {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ["vendor/xlsx.full.min.js", "content.js"],
+      files: ["vendor/xlsx.full.min.js", "note-utils.js", "content.js"],
     });
     await chrome.tabs.sendMessage(tab.id, { type: "XHS_TOGGLE_PANEL" });
   }
@@ -193,6 +193,8 @@ function uniqueRows(rows) {
       noteForm: row.noteForm || "图文",
       likes: Number.isFinite(row.likes) ? row.likes : "",
       url,
+      content: row.content || "",
+      coverUrl: row.coverUrl || "",
     });
   }
   return result;
@@ -216,6 +218,8 @@ async function batchCreateRecords({ token, appToken, tableId, rows, fieldTypes }
         笔记形式: row.noteForm,
         点赞: row.likes,
         原文链接: formatOriginalLink(row.url, fieldTypes),
+        正文: row.content,
+        封面链接: row.coverUrl,
       },
     }));
 
