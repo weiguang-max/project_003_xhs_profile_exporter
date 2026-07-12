@@ -59,19 +59,25 @@ assert.deepEqual(JSON.parse(JSON.stringify(utils.extractDetailData(detailRoot)))
 
 let clickListener = null;
 let dispatchedEvent = null;
+let clickCalls = 0;
 const fakeAnchor = {
   addEventListener(type, listener) {
     assert.equal(type, "click");
     clickListener = listener;
   },
-  dispatchEvent(event) {
+  click() {
+    clickCalls += 1;
+    const event = new FakeMouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+    });
     dispatchedEvent = event;
     clickListener(event);
-    return !event.defaultPrevented;
   },
 };
 
-assert.equal(utils.dispatchProfileCardClick(fakeAnchor), false);
+assert.equal(utils.dispatchProfileCardClick(fakeAnchor), true);
+assert.equal(clickCalls, 1);
 assert.equal(dispatchedEvent.type, "click");
 assert.equal(dispatchedEvent.bubbles, true);
 assert.equal(dispatchedEvent.cancelable, true);

@@ -64,12 +64,8 @@
       (event) => event.preventDefault(),
       { capture: true, once: true }
     );
-    const event = new globalThis.MouseEvent("click", {
-      bubbles: true,
-      cancelable: true,
-      view: globalThis.window || globalThis,
-    });
-    return target.dispatchEvent(event);
+    target.click();
+    return true;
   }
 
   globalThis.XHS_NOTE_UTILS = {
