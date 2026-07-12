@@ -37,6 +37,8 @@ const detailRoot = {
 };
 
 assert.equal(utils.extractDetailText(detailRoot), "第一段\n第二段");
+assert.equal(utils.detailContentReady(detailRoot), true);
+assert.equal(utils.detailContentReady({ querySelectorAll: () => [] }), false);
 assert.equal(utils.extractCoverUrl(detailRoot), "https://img.example/cover-full.jpg");
 assert.deepEqual(JSON.parse(JSON.stringify(utils.extractDetailData(detailRoot))), {
   title: "笔记标题",

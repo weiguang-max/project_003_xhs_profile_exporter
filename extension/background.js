@@ -194,8 +194,8 @@ function uniqueRows(rows) {
       noteForm: row.noteForm || "图文",
       likes: Number.isFinite(row.likes) ? row.likes : "",
       url,
-      content: row.content || "",
-      coverUrl: row.coverUrl || "",
+      content: String(row.content || ""),
+      coverUrl: String(row.coverUrl || ""),
     });
   }
   return result;

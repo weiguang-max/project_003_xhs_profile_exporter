@@ -14,6 +14,8 @@
   const SCAN_INTERVAL_MS = 1200;
   const MAX_IDLE_ROUNDS = 4;
   const MAX_AUTO_SCROLLS = 220;
+  const DETAIL_MIN_SETTLE_MS = 800;
+  const NOTE_SEARCH_SETTLE_MS = 600;
 
   const state = {
     visible: false,
@@ -1160,31 +1162,55 @@
     return null;
   }
 
-  function realClickNote(row) {
+  async function findNoteAnchorWithSearch(row) {
+    const immediate = findNoteAnchor(row);
+    if (immediate) return immediate;
+
+    const originalScrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+    window.scrollTo({ top: 0, behavior: "auto" });
+    await sleep(NOTE_SEARCH_SETTLE_MS);
+
+    for (let index = 0; index < MAX_AUTO_SCROLLS; index += 1) {
+      const anchor = findNoteAnchor(row);
+      if (anchor) return anchor;
+      if (isNearPageBottom()) break;
+      window.scrollBy({
+        top: Math.round(window.innerHeight * 0.8),
+        behavior: "auto",
+      });
+      await sleep(NOTE_SEARCH_SETTLE_MS);
+    }
+
     const anchor = findNoteAnchor(row);
+    if (anchor) return anchor;
+    window.scrollTo({ top: originalScrollTop, behavior: "auto" });
+    throw new Error("当前页面找不到笔记卡片。");
+  }
+
+  async function realClickNote(row) {
+    const anchor = await findNoteAnchorWithSearch(row);
     if (!anchor) throw new Error("当前页面找不到笔记卡片。");
 
     const card = cardForAnchor(anchor);
-    (card || anchor).scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
-    return sleep(250).then(() => {
-      const point = NOTE_UTILS.clickPointFromAnchor(anchor, card);
-      if (!point) throw new Error("笔记卡片没有有效的屏幕坐标。");
+    (card || anchor).scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
+    await sleep(150);
+    const point = NOTE_UTILS.clickPointFromAnchor(anchor, card);
+    if (!point) throw new Error("笔记卡片没有有效的屏幕坐标。");
 
-      return new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage(
-          { type: "XHS_REAL_MOUSE_CLICK", point },
-          (response) => {
-            const runtimeError = chrome.runtime.lastError;
-            if (runtimeError) {
-              reject(new Error(runtimeError.message));
-            } else if (!response || !response.ok) {
-              reject(new Error(response && response.error ? response.error : "真实鼠标点击失败。"));
-            } else {
-              resolve();
-            }
+    await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(
+        { type: "XHS_REAL_MOUSE_CLICK", point },
+        (response) => {
+          const runtimeError = chrome.runtime.lastError;
+          if (runtimeError) {
+            reject(new Error(runtimeError.message));
+          } else if (!response || !response.ok) {
+            reject(new Error(response && response.error ? response.error : "真实鼠标点击失败。"));
+          } else {
+            resolve();
           }
-        );
-      });
+        }
+      );
     });
   }
 
@@ -1194,14 +1220,21 @@
     ) || null;
   }
 
-  function waitForDetail(noteId, timeoutMs = 8000) {
+  function waitForDetail(noteId, timeoutMs = 12000) {
     const startedAt = Date.now();
     return new Promise((resolve, reject) => {
       const check = () => {
         const mask = visibleDetailMask(noteId);
         if (mask) {
           const data = NOTE_UTILS.extractDetailData(mask);
-          if (data && (data.title || data.content || data.coverUrl)) {
+          if (
+            Date.now() - startedAt >= DETAIL_MIN_SETTLE_MS &&
+            data &&
+            data.title &&
+            NOTE_UTILS.detailContentReady(mask) &&
+            data.content &&
+            data.coverUrl
+          ) {
             resolve(data);
             return;
           }
@@ -1420,8 +1453,8 @@
       noteForm: row.noteForm || "图文",
       likes: Number.isFinite(row.likes) ? row.likes : "",
       url: row.url || "",
-      content: row.content || "",
-      coverUrl: row.coverUrl || row.cover || "",
+      content: String(row.content || ""),
+      coverUrl: String(row.coverUrl || row.cover || ""),
     }));
   }
 
@@ -1432,11 +1465,17 @@
       render();
       return;
     }
-
     const config = currentFeishuConfig();
     if (!config.appId || !config.appSecret || !config.bitableUrl) {
       state.error = "请先填写并保存飞书配置。";
       switchPage("feishu");
+      render();
+      return;
+    }
+
+    const emptyContentCount = rows.filter((row) => !row.content.trim()).length;
+    if (emptyContentCount) {
+      state.error = `有 ${emptyContentCount} 条笔记正文为空，请先完成正文抓取。`;
       render();
       return;
     }
@@ -1538,11 +1577,12 @@
         const author = escapeHtml(row.author || state.author || "未识别作者");
         const likes = row.likes === "" ? "-" : String(row.likes);
         const noteForm = escapeHtml(row.noteForm || "图文");
+        const hasContent = Boolean(String(row.content || "").trim());
         const detailStatus = row.detailStatus === "capturing"
           ? "抓取中..."
-          : row.detailStatus === "done"
+          : row.detailStatus === "done" && hasContent
             ? "正文已抓取"
-            : row.detailStatus === "error"
+            : row.detailStatus === "error" || row.detailStatus === "done"
               ? "正文抓取失败"
               : "";
         const cover = row.cover

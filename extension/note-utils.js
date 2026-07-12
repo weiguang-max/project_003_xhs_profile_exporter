@@ -36,6 +36,10 @@
       .trim();
   }
 
+  function detailContentReady(root) {
+    return Boolean(root && root.querySelectorAll("#detail-desc .note-text").length);
+  }
+
   function extractCoverUrl(root) {
     if (!root) return "";
     const images = root.querySelectorAll("#noteContainer .media-container img");
@@ -84,6 +88,7 @@
   globalThis.XHS_NOTE_UTILS = {
     noteIdFromUrl,
     extractDetailText,
+    detailContentReady,
     extractCoverUrl,
     extractDetailData,
     clickPointFromElement,
