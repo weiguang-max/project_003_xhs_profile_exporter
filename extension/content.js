@@ -1248,7 +1248,7 @@
 
     anchor.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
     await sleep(250);
-    anchor.click();
+    NOTE_UTILS.dispatchProfileCardClick(anchor);
     try {
       await waitForDetail(row.noteId);
       state.error = "";
@@ -1309,7 +1309,7 @@
           if (!anchor) throw new Error("当前页面找不到笔记卡片。");
           anchor.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
           await sleep(250);
-          anchor.click();
+          NOTE_UTILS.dispatchProfileCardClick(anchor);
 
           const data = await waitForDetail(row.noteId);
           row.title = data.title || row.title;

@@ -56,10 +56,27 @@
     };
   }
 
+  function dispatchProfileCardClick(target) {
+    if (!target) return false;
+
+    target.addEventListener(
+      "click",
+      (event) => event.preventDefault(),
+      { capture: true, once: true }
+    );
+    const event = new globalThis.MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      view: globalThis.window || globalThis,
+    });
+    return target.dispatchEvent(event);
+  }
+
   globalThis.XHS_NOTE_UTILS = {
     noteIdFromUrl,
     extractDetailText,
     extractCoverUrl,
     extractDetailData,
+    dispatchProfileCardClick,
   };
 })();

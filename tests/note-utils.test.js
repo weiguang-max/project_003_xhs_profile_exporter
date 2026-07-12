@@ -6,7 +6,20 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const source = fs.readFileSync(path.join(__dirname, "../extension/note-utils.js"), "utf8");
-const sandbox = { globalThis: null, URL };
+class FakeMouseEvent {
+  constructor(type, options) {
+    this.type = type;
+    this.bubbles = options.bubbles;
+    this.cancelable = options.cancelable;
+    this.defaultPrevented = false;
+  }
+
+  preventDefault() {
+    this.defaultPrevented = true;
+  }
+}
+
+const sandbox = { globalThis: null, URL, MouseEvent: FakeMouseEvent };
 sandbox.globalThis = sandbox;
 vm.runInNewContext(source, sandbox, { filename: "note-utils.js" });
 
@@ -43,5 +56,25 @@ assert.deepEqual(JSON.parse(JSON.stringify(utils.extractDetailData(detailRoot)))
   content: "第一段\n第二段",
   coverUrl: "https://img.example/cover-full.jpg",
 });
+
+let clickListener = null;
+let dispatchedEvent = null;
+const fakeAnchor = {
+  addEventListener(type, listener) {
+    assert.equal(type, "click");
+    clickListener = listener;
+  },
+  dispatchEvent(event) {
+    dispatchedEvent = event;
+    clickListener(event);
+    return !event.defaultPrevented;
+  },
+};
+
+assert.equal(utils.dispatchProfileCardClick(fakeAnchor), false);
+assert.equal(dispatchedEvent.type, "click");
+assert.equal(dispatchedEvent.bubbles, true);
+assert.equal(dispatchedEvent.cancelable, true);
+assert.equal(dispatchedEvent.defaultPrevented, true);
 
 console.log("note-utils tests passed");
