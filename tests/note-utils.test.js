@@ -53,4 +53,30 @@ assert.deepEqual(
   { x: 60, y: 45 }
 );
 
+assert.deepEqual(
+  JSON.parse(JSON.stringify(utils.clickPointFromAnchor(
+    {
+      querySelector() {
+        return null;
+      },
+      getBoundingClientRect() {
+        return { left: 0, top: 0, width: 0, height: 0 };
+      },
+    },
+    {
+      querySelector() {
+        return {
+          getBoundingClientRect() {
+            return { left: 30, top: 40, width: 80, height: 60 };
+          },
+        };
+      },
+      getBoundingClientRect() {
+        return { left: 0, top: 0, width: 0, height: 0 };
+      },
+    }
+  ))),
+  { x: 70, y: 70 }
+);
+
 console.log("note-utils tests passed");

@@ -1164,9 +1164,10 @@
     const anchor = findNoteAnchor(row);
     if (!anchor) throw new Error("当前页面找不到笔记卡片。");
 
-    anchor.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    const card = cardForAnchor(anchor);
+    (card || anchor).scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
     return sleep(250).then(() => {
-      const point = NOTE_UTILS.clickPointFromElement(anchor);
+      const point = NOTE_UTILS.clickPointFromAnchor(anchor, card);
       if (!point) throw new Error("笔记卡片没有有效的屏幕坐标。");
 
       return new Promise((resolve, reject) => {

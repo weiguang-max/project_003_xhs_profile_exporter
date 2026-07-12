@@ -66,11 +66,27 @@
     };
   }
 
+  function clickPointFromAnchor(anchor, card) {
+    const candidates = [
+      anchor && typeof anchor.querySelector === "function" ? anchor.querySelector("img") : null,
+      anchor && anchor.parentElement,
+      card && typeof card.querySelector === "function" ? card.querySelector("img") : null,
+      anchor,
+      card,
+    ];
+    for (const candidate of candidates) {
+      const point = clickPointFromElement(candidate);
+      if (point) return point;
+    }
+    return null;
+  }
+
   globalThis.XHS_NOTE_UTILS = {
     noteIdFromUrl,
     extractDetailText,
     extractCoverUrl,
     extractDetailData,
     clickPointFromElement,
+    clickPointFromAnchor,
   };
 })();
