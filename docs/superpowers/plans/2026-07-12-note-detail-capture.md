@@ -4,7 +4,7 @@
 
 **Goal:** Add same-page note-detail extraction, list-item positioning, and正文/封面链接 export to the XHS profile exporter.
 
-**Architecture:** Keep the existing single content script and Shadow DOM panel. Add a small browser-independent utility script for URL and detail-DOM extraction, then use a serial state machine in `content.js` to click profile cards, read the current detail overlay, close it, and update each row. Extend the existing Excel and Feishu mappings without introducing private API calls.
+**Architecture:** Keep the existing single content script and Shadow DOM panel. Add a small browser-independent utility script for URL, detail-DOM extraction, and card coordinate calculation. The content script sends the card center to the service worker, which briefly attaches `chrome.debugger` and sends CDP mouse input before detaching; the serial state machine then reads the current detail overlay, closes it, and updates each row. Extend the existing Excel and Feishu mappings without introducing private API calls.
 
 **Tech Stack:** Chrome Manifest V3, plain JavaScript, Shadow DOM, Node built-in `assert` test runner, bundled SheetJS.
 
@@ -57,9 +57,9 @@ Add `note-utils.js` before `content.js` in `manifest.json` and keep the existing
 
 Add `content`, `coverUrl`, `detailStatus`, and `detailError` to rows. Add `capturingDetails`, current index, and a run token to state.
 
-- [ ] **Step 2: Add DOM lookup helpers**
+- [ ] **Step 2: Add DOM lookup and real-input helpers**
 
-Implement note-anchor lookup by normalized note ID, polling for a visible matching `.note-detail-mask[note-id]`, and closing the overlay through `.close-circle`/`.close-box` with Escape fallback.
+Implement note-anchor lookup by normalized note ID, calculate its viewport center, request a background `chrome.debugger` click, poll for a visible matching `.note-detail-mask[note-id]`, and close the overlay through `.close-circle`/`.close-box` with Escape fallback.
 
 - [ ] **Step 3: Add list-item opening**
 
@@ -95,7 +95,7 @@ Require the two new fields and send them in `batch_create` records. Existing tab
 
 - [ ] **Step 4: Update user-facing documentation and version**
 
-Document the new button, fields, same-page behavior, and URL-only cover handling. Bump the extension version to `0.2.0`.
+Document the new button, fields, same-page behavior, URL-only cover handling, and debugger permission. Bump the extension version to `0.3.0`.
 
 ### Task 5: Package and verify the release
 

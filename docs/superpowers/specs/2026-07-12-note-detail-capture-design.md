@@ -14,7 +14,7 @@
 - `#noteContainer .media-container img`：详情图片，第一张作为封面 URL
 - `.close-circle` / `.close-box`：关闭详情
 
-这些选择器属于页面 DOM，代码必须保留可见性检查和无结果处理，不能依赖内部 API。
+这些选择器属于页面 DOM，代码必须保留可见性检查和无结果处理，不能依赖内部 API。主页卡片打开详情时不使用脚本合成点击，而由 content script 计算卡片坐标，background 通过 `chrome.debugger` 的 CDP `Input.dispatchMouseEvent` 发送鼠标输入。
 
 ## 交互与数据流
 
@@ -27,6 +27,7 @@
 ## 风险边界
 
 - 不请求小红书内部接口，不绕过登录、验证码或访问限制。
+- 真实点击需要 Manifest V3 的 `debugger` 权限；每次操作只短暂 attach 当前标签页，发送一次点击后立即 detach。
 - 不下载图片文件，只保存浏览器页面已公开展示的图片 URL。
 - 不并发打开详情；抓取任务只能由用户在面板中启动，并支持停止。
 - 图片 URL 可能带签名或过期，导出值按页面当时提供的 URL 保存。

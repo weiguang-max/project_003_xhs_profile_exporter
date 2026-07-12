@@ -4,6 +4,7 @@ const FEISHU_API = "https://open.feishu.cn/open-apis";
 const FEISHU_BATCH_SIZE = 500;
 const REQUIRED_FIELDS = ["标题", "作者", "笔记形式", "点赞", "原文链接", "正文", "封面链接"];
 const FEISHU_URL_FIELD_TYPE = 15;
+const DEBUGGER_PROTOCOL_VERSION = "1.3";
 
 async function sendToggle(tab) {
   if (!tab || !tab.id || !tab.url || !tab.url.startsWith("https://www.xiaohongshu.com/")) {
@@ -268,8 +269,63 @@ async function importFeishu(message) {
   };
 }
 
+async function dispatchRealMouseClick(tabId, point) {
+  if (!Number.isFinite(point && point.x) || !Number.isFinite(point && point.y)) {
+    throw new Error("笔记卡片坐标无效。");
+  }
+
+  const target = { tabId };
+  let attached = false;
+  try {
+    await chrome.debugger.attach(target, DEBUGGER_PROTOCOL_VERSION);
+    attached = true;
+    await chrome.debugger.sendCommand(target, "Input.dispatchMouseEvent", {
+      type: "mouseMoved",
+      x: point.x,
+      y: point.y,
+      button: "none",
+      buttons: 0,
+      pointerType: "mouse",
+    });
+    await chrome.debugger.sendCommand(target, "Input.dispatchMouseEvent", {
+      type: "mousePressed",
+      x: point.x,
+      y: point.y,
+      button: "left",
+      buttons: 1,
+      clickCount: 1,
+      pointerType: "mouse",
+    });
+    await chrome.debugger.sendCommand(target, "Input.dispatchMouseEvent", {
+      type: "mouseReleased",
+      x: point.x,
+      y: point.y,
+      button: "left",
+      buttons: 0,
+      clickCount: 1,
+      pointerType: "mouse",
+    });
+  } finally {
+    if (attached) {
+      await chrome.debugger.detach(target).catch(() => {});
+    }
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message) return false;
+
+  if (message.type === "XHS_REAL_MOUSE_CLICK") {
+    const tabId = _sender && _sender.tab ? _sender.tab.id : 0;
+    if (!tabId) {
+      sendResponse({ ok: false, error: "无法识别当前小红书标签页。" });
+      return false;
+    }
+    dispatchRealMouseClick(tabId, message.point)
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => sendResponse({ ok: false, error: error.message || String(error) }));
+    return true;
+  }
 
   if (message.type === "XHS_IMPORT_FEISHU") {
     importFeishu(message)

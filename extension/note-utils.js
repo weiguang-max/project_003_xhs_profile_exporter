@@ -56,16 +56,14 @@
     };
   }
 
-  function dispatchProfileCardClick(target) {
-    if (!target) return false;
-
-    target.addEventListener(
-      "click",
-      (event) => event.preventDefault(),
-      { capture: true, once: true }
-    );
-    target.click();
-    return true;
+  function clickPointFromElement(element) {
+    if (!element || typeof element.getBoundingClientRect !== "function") return null;
+    const rect = element.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+    return {
+      x: Math.round(rect.left + rect.width / 2),
+      y: Math.round(rect.top + rect.height / 2),
+    };
   }
 
   globalThis.XHS_NOTE_UTILS = {
@@ -73,6 +71,6 @@
     extractDetailText,
     extractCoverUrl,
     extractDetailData,
-    dispatchProfileCardClick,
+    clickPointFromElement,
   };
 })();

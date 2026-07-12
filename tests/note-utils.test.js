@@ -6,20 +6,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const source = fs.readFileSync(path.join(__dirname, "../extension/note-utils.js"), "utf8");
-class FakeMouseEvent {
-  constructor(type, options) {
-    this.type = type;
-    this.bubbles = options.bubbles;
-    this.cancelable = options.cancelable;
-    this.defaultPrevented = false;
-  }
-
-  preventDefault() {
-    this.defaultPrevented = true;
-  }
-}
-
-const sandbox = { globalThis: null, URL, MouseEvent: FakeMouseEvent };
+const sandbox = { globalThis: null, URL };
 sandbox.globalThis = sandbox;
 vm.runInNewContext(source, sandbox, { filename: "note-utils.js" });
 
@@ -57,30 +44,13 @@ assert.deepEqual(JSON.parse(JSON.stringify(utils.extractDetailData(detailRoot)))
   coverUrl: "https://img.example/cover-full.jpg",
 });
 
-let clickListener = null;
-let dispatchedEvent = null;
-let clickCalls = 0;
-const fakeAnchor = {
-  addEventListener(type, listener) {
-    assert.equal(type, "click");
-    clickListener = listener;
-  },
-  click() {
-    clickCalls += 1;
-    const event = new FakeMouseEvent("click", {
-      bubbles: true,
-      cancelable: true,
-    });
-    dispatchedEvent = event;
-    clickListener(event);
-  },
-};
-
-assert.equal(utils.dispatchProfileCardClick(fakeAnchor), true);
-assert.equal(clickCalls, 1);
-assert.equal(dispatchedEvent.type, "click");
-assert.equal(dispatchedEvent.bubbles, true);
-assert.equal(dispatchedEvent.cancelable, true);
-assert.equal(dispatchedEvent.defaultPrevented, true);
+assert.deepEqual(
+  JSON.parse(JSON.stringify(utils.clickPointFromElement({
+    getBoundingClientRect() {
+      return { left: 10, top: 20, width: 100, height: 50 };
+    },
+  }))),
+  { x: 60, y: 45 }
+);
 
 console.log("note-utils tests passed");

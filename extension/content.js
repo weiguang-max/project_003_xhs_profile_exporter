@@ -1160,6 +1160,33 @@
     return null;
   }
 
+  function realClickNote(row) {
+    const anchor = findNoteAnchor(row);
+    if (!anchor) throw new Error("当前页面找不到笔记卡片。");
+
+    anchor.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    return sleep(250).then(() => {
+      const point = NOTE_UTILS.clickPointFromElement(anchor);
+      if (!point) throw new Error("笔记卡片没有有效的屏幕坐标。");
+
+      return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage(
+          { type: "XHS_REAL_MOUSE_CLICK", point },
+          (response) => {
+            const runtimeError = chrome.runtime.lastError;
+            if (runtimeError) {
+              reject(new Error(runtimeError.message));
+            } else if (!response || !response.ok) {
+              reject(new Error(response && response.error ? response.error : "真实鼠标点击失败。"));
+            } else {
+              resolve();
+            }
+          }
+        );
+      });
+    });
+  }
+
   function visibleDetailMask(noteId) {
     return [...document.querySelectorAll(".note-detail-mask[note-id]")].find(
       (mask) => isVisible(mask) && (!noteId || mask.getAttribute("note-id") === noteId)
@@ -1239,17 +1266,8 @@
 
     closeNoteDetail();
     await waitForDetailClosed();
-    const anchor = findNoteAnchor(row);
-    if (!anchor) {
-      state.error = "当前页面找不到这条笔记卡片，请先滚动加载它。";
-      render();
-      return;
-    }
-
-    anchor.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
-    await sleep(250);
-    NOTE_UTILS.dispatchProfileCardClick(anchor);
     try {
+      await realClickNote(row);
       await waitForDetail(row.noteId);
       state.error = "";
       state.message = `已定位到：${row.title || "这条笔记"}`;
@@ -1305,12 +1323,7 @@
         render();
 
         try {
-          const anchor = findNoteAnchor(row);
-          if (!anchor) throw new Error("当前页面找不到笔记卡片。");
-          anchor.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
-          await sleep(250);
-          NOTE_UTILS.dispatchProfileCardClick(anchor);
-
+          await realClickNote(row);
           const data = await waitForDetail(row.noteId);
           row.title = data.title || row.title;
           row.content = data.content || "";
