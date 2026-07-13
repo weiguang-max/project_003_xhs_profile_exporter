@@ -45,6 +45,7 @@
   let shadow = null;
   let els = {};
   let originalBodyStyles = null;
+  let originalAppStyles = null;
   let profileContext = false;
 
   function sleep(ms) {
@@ -358,27 +359,54 @@
     originalBodyStyles = {
       width: document.body.style.width,
       maxWidth: document.body.style.maxWidth,
+      minWidth: document.body.style.minWidth,
       paddingRight: document.body.style.paddingRight,
       boxSizing: document.body.style.boxSizing,
       transition: document.body.style.transition,
       overflowX: document.documentElement.style.overflowX,
     };
+    const app = document.querySelector("#app");
+    originalAppStyles = app ? {
+      element: app,
+      width: app.style.width,
+      maxWidth: app.style.maxWidth,
+      minWidth: app.style.minWidth,
+      boxSizing: app.style.boxSizing,
+      overflowX: app.style.overflowX,
+    } : null;
     document.body.style.setProperty("width", `calc(100% - ${PANEL_WIDTH}px)`, "important");
     document.body.style.setProperty("max-width", `calc(100% - ${PANEL_WIDTH}px)`, "important");
+    document.body.style.setProperty("min-width", "0", "important");
     document.body.style.setProperty("padding-right", "0", "important");
     document.body.style.setProperty("box-sizing", "border-box", "important");
     document.body.style.setProperty("transition", "width 180ms ease, max-width 180ms ease", "important");
     document.documentElement.style.setProperty("overflow-x", "hidden", "important");
+    if (app) {
+      app.style.setProperty("width", "100%", "important");
+      app.style.setProperty("max-width", "100%", "important");
+      app.style.setProperty("min-width", "0", "important");
+      app.style.setProperty("box-sizing", "border-box", "important");
+      app.style.setProperty("overflow-x", "hidden", "important");
+    }
   }
 
   function restoreSplitLayout() {
     if (!document.body || !originalBodyStyles) return;
     document.body.style.width = originalBodyStyles.width;
     document.body.style.maxWidth = originalBodyStyles.maxWidth;
+    document.body.style.minWidth = originalBodyStyles.minWidth;
     document.body.style.paddingRight = originalBodyStyles.paddingRight;
     document.body.style.boxSizing = originalBodyStyles.boxSizing;
     document.body.style.transition = originalBodyStyles.transition;
     document.documentElement.style.overflowX = originalBodyStyles.overflowX;
+    if (originalAppStyles) {
+      originalAppStyles.element.style.width = originalAppStyles.width;
+      originalAppStyles.element.style.maxWidth = originalAppStyles.maxWidth;
+      originalAppStyles.element.style.minWidth = originalAppStyles.minWidth;
+      originalAppStyles.element.style.boxSizing = originalAppStyles.boxSizing;
+      originalAppStyles.element.style.overflowX = originalAppStyles.overflowX;
+    }
+    originalAppStyles = null;
     originalBodyStyles = null;
   }
 
@@ -422,7 +450,7 @@
           padding: 12px;
           background: var(--bg);
           border-left: 1px solid var(--line);
-          box-shadow: -18px 0 48px rgba(0, 0, 0, 0.12);
+          box-shadow: none;
           color: var(--ink);
           box-sizing: border-box;
         }
