@@ -1197,6 +1197,10 @@
     const point = NOTE_UTILS.clickPointFromAnchor(anchor, card);
     if (!point) throw new Error("笔记卡片没有有效的屏幕坐标。");
 
+    await sendRealMouseClick(point);
+  }
+
+  async function sendRealMouseClick(point) {
     await new Promise((resolve, reject) => {
       chrome.runtime.sendMessage(
         { type: "XHS_REAL_MOUSE_CLICK", point },
@@ -1268,14 +1272,23 @@
     });
   }
 
-  function closeNoteDetail() {
+  async function closeNoteDetail() {
     const mask = visibleDetailMask();
     if (!mask) return;
 
     const closeButton = [...mask.querySelectorAll(".close-circle, .close-box")].find(isVisible);
     if (closeButton) {
+      const point = NOTE_UTILS.clickPointFromElement(closeButton);
+      if (point) {
+        try {
+          await sendRealMouseClick(point);
+          await sleep(150);
+          if (!visibleDetailMask()) return;
+        } catch (_) {
+          // Fall back to the page's click handler below.
+        }
+      }
       closeButton.click();
-      return;
     }
 
     window.dispatchEvent(new KeyboardEvent("keydown", {
@@ -1298,7 +1311,7 @@
     const row = state.candidates.find((item) => item.url === url);
     if (!row) return;
 
-    closeNoteDetail();
+    await closeNoteDetail();
     await waitForDetailClosed();
     try {
       await realClickNote(row);
@@ -1343,7 +1356,7 @@
     render();
 
     try {
-      closeNoteDetail();
+      await closeNoteDetail();
       await waitForDetailClosed();
 
       for (let index = 0; index < rows.length; index += 1) {
@@ -1369,7 +1382,7 @@
           row.detailStatus = "error";
           row.detailError = error.message || String(error);
         } finally {
-          closeNoteDetail();
+          await closeNoteDetail();
           await waitForDetailClosed();
         }
         render();
