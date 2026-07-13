@@ -127,6 +127,14 @@ assert.deepEqual(
   }
 );
 assert.equal(
+  feishuUtils.buildFeishuRecordFields(
+    { title: "无点赞", author: "作者", noteForm: "图文", likes: "", content: "正文" },
+    "https://xhs.example/note",
+    null
+  ).点赞,
+  0
+);
+assert.equal(
   feishuUtils.fileNameFromImageUrl("https://img.example/path/cover.webp?x=1", "image/webp"),
   "cover.webp"
 );

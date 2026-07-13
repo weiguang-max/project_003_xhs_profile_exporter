@@ -257,7 +257,7 @@
         noteId: NOTE_UTILS.noteIdFromUrl(url),
         author: state.author || "",
         title: titleFromCard(card, anchor),
-        likes: likes === null ? "" : likes,
+        likes: likes === null ? 0 : likes,
         noteForm: noteFormFromCard(card),
         url,
         cover,

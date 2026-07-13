@@ -19,7 +19,7 @@
       标题: row.title,
       作者: row.author,
       笔记形式: row.noteForm,
-      点赞: row.likes,
+      点赞: Number.isFinite(row.likes) ? row.likes : 0,
       原文链接: originalLink,
       正文: row.content,
     };

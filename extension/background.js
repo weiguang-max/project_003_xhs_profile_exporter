@@ -251,7 +251,7 @@ function uniqueRows(rows) {
       title: row.title || "",
       author: row.author || "",
       noteForm: row.noteForm || "图文",
-      likes: Number.isFinite(row.likes) ? row.likes : "",
+      likes: Number.isFinite(row.likes) ? row.likes : 0,
       url,
       content: String(row.content || ""),
       coverUrl: String(row.coverUrl || ""),

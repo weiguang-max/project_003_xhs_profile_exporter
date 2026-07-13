@@ -119,7 +119,7 @@
 
   function filteredRows() {
     return state.candidates.filter((row) => {
-      const likes = Number.isFinite(row.likes) ? row.likes : -1;
+      const likes = Number.isFinite(row.likes) ? row.likes : 0;
       return (state.minLikes <= 0 || likes >= state.minLikes) &&
         (state.typeFilter === "全部" || row.noteForm === state.typeFilter);
     });
@@ -128,7 +128,7 @@
   function displayRows() {
     const rows = filteredRows().slice();
     if (!state.sortByLikes) return rows.sort((a, b) => a.order - b.order);
-    return rows.sort((a, b) => (Number.isFinite(b.likes) ? b.likes : -1) - (Number.isFinite(a.likes) ? a.likes : -1) || a.order - b.order);
+    return rows.sort((a, b) => (Number.isFinite(b.likes) ? b.likes : 0) - (Number.isFinite(a.likes) ? a.likes : 0) || a.order - b.order);
   }
 
   function findRow(url) {
@@ -140,7 +140,7 @@
       title: row.title || "",
       author: row.author || state.author || "",
       noteForm: row.noteForm || "图文",
-      likes: Number.isFinite(row.likes) ? row.likes : "",
+      likes: Number.isFinite(row.likes) ? row.likes : 0,
       url: row.url || "",
       content: String(row.content || ""),
       coverUrl: String(row.coverUrl || row.cover || ""),
@@ -319,7 +319,7 @@
     els.list.innerHTML = rows.map((row, index) => {
       const title = escapeHtml(row.title || "未识别标题");
       const author = escapeHtml(row.author || state.author || "未识别作者");
-      const likes = row.likes === "" ? "-" : String(row.likes);
+      const likes = Number.isFinite(row.likes) ? String(row.likes) : "0";
       const hasContent = Boolean(String(row.content || "").trim());
       const status = row.detailStatus === "capturing" ? "抓取中..." : row.detailStatus === "done" && hasContent ? "正文已抓取" : row.detailStatus === "error" || row.detailStatus === "done" ? "正文抓取失败" : "";
       const cover = row.cover || row.coverUrl ? `<img class="thumb" src="${escapeHtml(row.cover || row.coverUrl)}" alt="">` : '<div class="thumb"></div>';
