@@ -12,6 +12,13 @@ vm.runInNewContext(source, sandbox, { filename: "note-utils.js" });
 
 const utils = sandbox.XHS_NOTE_UTILS;
 
+const feishuSourcePath = path.join(__dirname, "../extension/feishu-utils.js");
+const feishuSource = fs.existsSync(feishuSourcePath) ? fs.readFileSync(feishuSourcePath, "utf8") : "";
+const feishuSandbox = { globalThis: null, URL };
+feishuSandbox.globalThis = feishuSandbox;
+vm.runInNewContext(feishuSource, feishuSandbox, { filename: "feishu-utils.js" });
+const feishuUtils = feishuSandbox.XHS_FEISHU_UTILS || {};
+
 assert.equal(
   utils.noteIdFromUrl("https://www.xiaohongshu.com/user/profile/author/6a2d40180000000036000abb?xsec_token=test"),
   "6a2d40180000000036000abb"
@@ -79,6 +86,53 @@ assert.deepEqual(
     }
   ))),
   { x: 70, y: 70 }
+);
+
+assert.equal(
+  feishuUtils.findCoverAttachmentField(new Map([["封面", 17]])),
+  "封面"
+);
+assert.equal(
+  feishuUtils.findCoverAttachmentField(new Map([["封面", 1]])),
+  ""
+);
+assert.equal(
+  feishuUtils.findCoverAttachmentField(new Map([["封面图片", 17]])),
+  ""
+);
+assert.deepEqual(
+  JSON.parse(JSON.stringify(feishuUtils.buildAttachmentValue("file-token-1", "cover.webp"))),
+  [{ file_token: "file-token-1", name: "cover.webp" }]
+);
+assert.deepEqual(
+  JSON.parse(JSON.stringify(feishuUtils.buildFeishuRecordFields(
+    {
+      title: "标题",
+      author: "作者",
+      noteForm: "图文",
+      likes: 12,
+      content: "正文",
+    },
+    { text: "https://xhs.example/note", link: "https://xhs.example/note" },
+    [{ file_token: "file-token-1", name: "cover.webp" }]
+  ))),
+  {
+    标题: "标题",
+    作者: "作者",
+    笔记形式: "图文",
+    点赞: 12,
+    原文链接: { text: "https://xhs.example/note", link: "https://xhs.example/note" },
+    正文: "正文",
+    封面: [{ file_token: "file-token-1", name: "cover.webp" }],
+  }
+);
+assert.equal(
+  feishuUtils.fileNameFromImageUrl("https://img.example/path/cover.webp?x=1", "image/webp"),
+  "cover.webp"
+);
+assert.equal(
+  feishuUtils.fileNameFromImageUrl("not-a-url", "image/jpeg"),
+  "xiaohongshu-cover.jpeg"
 );
 
 console.log("note-utils tests passed");

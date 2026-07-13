@@ -1,10 +1,13 @@
 "use strict";
 
+importScripts("feishu-utils.js");
+
 const FEISHU_API = "https://open.feishu.cn/open-apis";
 const FEISHU_BATCH_SIZE = 500;
-const REQUIRED_FIELDS = ["标题", "作者", "笔记形式", "点赞", "原文链接", "正文", "封面链接"];
+const REQUIRED_FIELDS = ["标题", "作者", "笔记形式", "点赞", "原文链接", "正文", "封面"];
 const FEISHU_URL_FIELD_TYPE = 15;
 const DEBUGGER_PROTOCOL_VERSION = "1.3";
+const FEISHU_UTILS = globalThis.XHS_FEISHU_UTILS;
 
 async function configureSidePanel() {
   await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
@@ -171,8 +174,70 @@ async function readFieldTypes({ token, appToken, tableId }) {
   if (missing.length) {
     throw new Error(`飞书表缺少字段：${missing.join("、")}`);
   }
+  if (!FEISHU_UTILS.findCoverAttachmentField(fields)) {
+    throw new Error("飞书字段“封面”必须是附件类型，请新建附件字段后重试。");
+  }
 
   return fields;
+}
+
+async function downloadCoverImage(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`封面图片下载失败：HTTP ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const contentType = (response.headers.get("content-type") || blob.type || "").split(";", 1)[0].trim().toLowerCase();
+  if (!contentType.startsWith("image/")) {
+    throw new Error("封面链接返回的不是图片。");
+  }
+  if (!blob.size) {
+    throw new Error("封面图片为空。");
+  }
+  if (blob.size > 20 * 1024 * 1024) {
+    throw new Error("封面图片超过飞书单文件 20 MB 限制。");
+  }
+
+  return {
+    blob,
+    fileName: FEISHU_UTILS.fileNameFromImageUrl(url, contentType),
+  };
+}
+
+async function uploadBitableImage({ token, appToken, blob, fileName }) {
+  const form = new FormData();
+  form.append("file_name", fileName);
+  form.append("parent_type", "bitable_file");
+  form.append("parent_node", appToken);
+  form.append("size", String(blob.size));
+  form.append("file", blob, fileName);
+
+  const response = await fetch(`${FEISHU_API}/drive/v1/medias/upload_all`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (_) {
+    // handled below
+  }
+
+  if (!response.ok) {
+    throw new Error(`飞书图片上传失败：HTTP ${response.status}`);
+  }
+  if (!payload || payload.code !== 0) {
+    throw new Error((payload && payload.msg) || "飞书图片上传失败。");
+  }
+
+  const fileToken = payload.data && payload.data.file_token;
+  if (!fileToken) {
+    throw new Error("飞书图片上传未返回 file_token。");
+  }
+  return fileToken;
 }
 
 function uniqueRows(rows) {
@@ -204,19 +269,40 @@ function formatOriginalLink(url, fieldTypes) {
 
 async function batchCreateRecords({ token, appToken, tableId, rows, fieldTypes }) {
   let created = 0;
+  let coverUploaded = 0;
+  const coverFailures = [];
+
   for (let index = 0; index < rows.length; index += FEISHU_BATCH_SIZE) {
     const chunk = rows.slice(index, index + FEISHU_BATCH_SIZE);
-    const records = chunk.map((row) => ({
-      fields: {
-        标题: row.title,
-        作者: row.author,
-        笔记形式: row.noteForm,
-        点赞: row.likes,
-        原文链接: formatOriginalLink(row.url, fieldTypes),
-        正文: row.content,
-        封面链接: row.coverUrl,
-      },
-    }));
+    const records = [];
+
+    for (const row of chunk) {
+      let coverAttachment = null;
+
+      if (row.coverUrl) {
+        try {
+          const image = await downloadCoverImage(row.coverUrl);
+          const fileToken = await uploadBitableImage({
+            token,
+            appToken,
+            blob: image.blob,
+            fileName: image.fileName,
+          });
+          coverAttachment = FEISHU_UTILS.buildAttachmentValue(fileToken, image.fileName);
+          coverUploaded += 1;
+        } catch (error) {
+          coverFailures.push({ title: row.title, error: error.message || String(error) });
+        }
+      }
+
+      records.push({
+        fields: FEISHU_UTILS.buildFeishuRecordFields(
+          row,
+          formatOriginalLink(row.url, fieldTypes),
+          coverAttachment,
+        ),
+      });
+    }
 
     const payload = await feishuRequest(
       `/bitable/v1/apps/${encodeURIComponent(appToken)}/tables/${encodeURIComponent(tableId)}/records/batch_create`,
@@ -231,7 +317,7 @@ async function batchCreateRecords({ token, appToken, tableId, rows, fieldTypes }
     );
     created += ((payload.data || {}).records || records).length;
   }
-  return created;
+  return { created, coverUploaded, coverFailures };
 }
 
 async function importFeishu(message) {
@@ -252,14 +338,16 @@ async function importFeishu(message) {
 
   const existingUrls = await readExistingUrls({ token, appToken, tableId });
   const newRows = rows.filter((row) => !existingUrls.has(row.url));
-  const created = newRows.length
+  const result = newRows.length
     ? await batchCreateRecords({ token, appToken, tableId, rows: newRows, fieldTypes })
-    : 0;
+    : { created: 0, coverUploaded: 0, coverFailures: [] };
 
   return {
-    created,
+    created: result.created,
     skipped: rows.length - newRows.length,
     total: rows.length,
+    coverUploaded: result.coverUploaded,
+    coverFailures: result.coverFailures,
   };
 }
 

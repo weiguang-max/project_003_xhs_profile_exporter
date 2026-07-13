@@ -284,8 +284,9 @@
       else if (!response || !response.ok) state.error = response && response.error || "导入飞书失败。";
       else {
         const result = response.data || {};
+        const coverFailures = Array.isArray(result.coverFailures) ? result.coverFailures : [];
         state.error = "";
-        state.message = `飞书导入完成：新增 ${result.created || 0} 条，跳过重复 ${result.skipped || 0} 条。`;
+        state.message = `飞书导入完成：新增 ${result.created || 0} 条，跳过重复 ${result.skipped || 0} 条，封面图片成功 ${result.coverUploaded || 0} 张${coverFailures.length ? `，失败 ${coverFailures.length} 张（${coverFailures[0].title || "未命名笔记"}）` : ""}。`;
       }
       state.importingFeishu = false;
       render();
