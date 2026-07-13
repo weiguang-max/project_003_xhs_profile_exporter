@@ -6,25 +6,19 @@ const REQUIRED_FIELDS = ["标题", "作者", "笔记形式", "点赞", "原文�
 const FEISHU_URL_FIELD_TYPE = 15;
 const DEBUGGER_PROTOCOL_VERSION = "1.3";
 
-async function sendToggle(tab) {
-  if (!tab || !tab.id || !tab.url || !tab.url.startsWith("https://www.xiaohongshu.com/")) {
-    return;
-  }
-
-  try {
-    await chrome.tabs.sendMessage(tab.id, { type: "XHS_TOGGLE_PANEL" });
-  } catch (_) {
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ["vendor/xlsx.full.min.js", "note-utils.js", "content.js"],
-    });
-    await chrome.tabs.sendMessage(tab.id, { type: "XHS_TOGGLE_PANEL" });
-  }
+async function configureSidePanel() {
+  await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 }
 
-chrome.action.onClicked.addListener((tab) => {
-  sendToggle(tab);
+chrome.runtime.onInstalled.addListener(() => {
+  configureSidePanel().catch(() => {});
 });
+
+chrome.runtime.onStartup.addListener(() => {
+  configureSidePanel().catch(() => {});
+});
+
+configureSidePanel().catch(() => {});
 
 function parseBitableUrl(rawUrl) {
   let url;

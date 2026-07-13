@@ -28,7 +28,7 @@ Expected: `note-utils tests passed` and no syntax errors.
 
 - [x] **Step 3: Apply split styles to both page layers**
 
-In `applySplitLayout()`, find `document.querySelector("#app")`, set its `width` and `max-width` to `100%`, set `min-width: 0`, `box-sizing: border-box`, and set `overflow-x: hidden` on the document root. The body remains the layer that subtracts `PANEL_WIDTH`; save each changed inline style before overriding it.
+In `applySplitLayout()`, find `document.querySelector("#app")`, set its `width` and `max-width` to `calc(100vw - ${PANEL_WIDTH}px)`, set `min-width: 0`, `box-sizing: border-box`, and set `overflow-x: hidden` on the document root. The body remains the layer that subtracts `PANEL_WIDTH`; save each changed inline style before overriding it.
 
 - [x] **Step 4: Restore both page layers**
 
