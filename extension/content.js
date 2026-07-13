@@ -45,6 +45,7 @@
   let shadow = null;
   let els = {};
   let originalBodyStyles = null;
+  let profileContext = false;
 
   function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -57,10 +58,12 @@
   }
 
   function isProfilePage() {
-    return (
-      location.hostname === "www.xiaohongshu.com" &&
-      PROFILE_PATH_RE.test(location.pathname)
-    );
+    if (location.hostname !== "www.xiaohongshu.com") return false;
+    if (PROFILE_PATH_RE.test(location.pathname)) {
+      profileContext = true;
+      return true;
+    }
+    return profileContext && state.candidates.length > 0;
   }
 
   function isVisible(element) {
