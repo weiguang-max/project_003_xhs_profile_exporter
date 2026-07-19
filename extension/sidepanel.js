@@ -3,6 +3,8 @@
 (() => {
   const XHS_ORIGIN = "https://www.xiaohongshu.com/";
   const PROFILE_RE = /^\/user\/profile\/[^/?#]+/;
+  const FEISHU_UTILS = globalThis.XHS_FEISHU_UTILS;
+  const NOTE_UTILS = globalThis.XHS_NOTE_UTILS;
   const state = {
     activeTabId: 0,
     activeUrl: "",
@@ -15,6 +17,7 @@
     candidates: [],
     message: "",
     error: "",
+    keyword: "",
     minLikes: 0,
     typeFilter: "全部",
     limit: 300,
@@ -28,6 +31,7 @@
     summary: $("summary"),
     scrollStatus: $("scrollStatus"),
     pageHint: $("pageHint"),
+    keyword: $("keyword"),
     minLikes: $("minLikes"),
     limit: $("limit"),
     typeFilter: $("typeFilter"),
@@ -120,7 +124,8 @@
   function filteredRows() {
     return state.candidates.filter((row) => {
       const likes = Number.isFinite(row.likes) ? row.likes : 0;
-      return (state.minLikes <= 0 || likes >= state.minLikes) &&
+      return NOTE_UTILS.matchesKeyword(row, state.keyword) &&
+        (state.minLikes <= 0 || likes >= state.minLikes) &&
         (state.typeFilter === "全部" || row.noteForm === state.typeFilter);
     });
   }
@@ -268,9 +273,9 @@
       render();
       return;
     }
-    const emptyContentCount = rows.filter((row) => !row.content.trim()).length;
-    if (emptyContentCount) {
-      state.error = `有 ${emptyContentCount} 条笔记正文为空，请先完成正文抓取。`;
+    const importBlockMessage = FEISHU_UTILS.getFeishuImportBlockMessage(rows);
+    if (importBlockMessage) {
+      state.error = importBlockMessage;
       render();
       return;
     }
@@ -340,6 +345,7 @@
   els.importFeishu.addEventListener("click", importFeishu);
   els.saveFeishu.addEventListener("click", () => saveFeishuConfig().catch((error) => { els.feishuMessage.textContent = error.message; }));
   els.minLikes.addEventListener("input", () => { state.minLikes = Number.parseInt(els.minLikes.value, 10) || 0; render(); });
+  els.keyword.addEventListener("input", () => { state.keyword = els.keyword.value; render(); });
   els.typeFilter.addEventListener("change", () => { state.typeFilter = els.typeFilter.value; render(); });
   els.sort.addEventListener("click", () => { state.sortByLikes = !state.sortByLikes; render(); });
   els.list.addEventListener("click", (event) => {

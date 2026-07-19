@@ -27,6 +27,10 @@
     return fields;
   }
 
+  function getFeishuImportBlockMessage(rows) {
+    return Array.isArray(rows) && rows.length ? "" : "没有可导入的数据。";
+  }
+
   function fileNameFromImageUrl(rawUrl, contentType) {
     const fallbackExtension = String(contentType || "image/jpeg").split("/")[1] || "jpeg";
     try {
@@ -44,6 +48,7 @@
     findCoverAttachmentField,
     buildAttachmentValue,
     buildFeishuRecordFields,
+    getFeishuImportBlockMessage,
     fileNameFromImageUrl,
   };
 })();

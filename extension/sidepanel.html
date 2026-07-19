@@ -26,6 +26,7 @@
 
         <section class="card controls">
           <p class="hint" id="pageHint">请打开小红书博主主页采集全部笔记</p>
+          <label class="field keyword-field"><span>关键词筛选</span><input id="keyword" type="text" placeholder="标题或正文关键词"></label>
           <label class="field"><span>筛选点赞数≥</span><input id="minLikes" type="number" min="0" value="0"><span>的笔记</span></label>
           <label class="field"><span>候选笔记数</span><input id="limit" type="number" min="1" max="5000" value="300"><span>条</span></label>
           <button class="primary" id="start">开始采集博主笔记</button>
@@ -57,6 +58,8 @@
       </section>
     </main>
     <script src="vendor/xlsx.full.min.js"></script>
+    <script src="feishu-utils.js"></script>
+    <script src="note-utils.js"></script>
     <script src="sidepanel.js"></script>
   </body>
 </html>

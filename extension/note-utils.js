@@ -60,6 +60,13 @@
     };
   }
 
+  function matchesKeyword(row, keyword) {
+    const normalizedKeyword = String(keyword || "").trim().toLowerCase();
+    if (!normalizedKeyword) return true;
+    return [row && row.title, row && row.content]
+      .some((value) => String(value || "").toLowerCase().includes(normalizedKeyword));
+  }
+
   function clickPointFromElement(element) {
     if (!element || typeof element.getBoundingClientRect !== "function") return null;
     const rect = element.getBoundingClientRect();
@@ -91,6 +98,7 @@
     detailContentReady,
     extractCoverUrl,
     extractDetailData,
+    matchesKeyword,
     clickPointFromElement,
     clickPointFromAnchor,
   };

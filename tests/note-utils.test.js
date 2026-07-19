@@ -46,6 +46,11 @@ const detailRoot = {
 assert.equal(utils.extractDetailText(detailRoot), "第一段\n第二段");
 assert.equal(utils.detailContentReady(detailRoot), true);
 assert.equal(utils.detailContentReady({ querySelectorAll: () => [] }), false);
+assert.equal(utils.matchesKeyword({ title: "春日耳钉", content: "银色材质" }, ""), true);
+assert.equal(utils.matchesKeyword({ title: "春日耳钉", content: "银色材质" }, "耳钉"), true);
+assert.equal(utils.matchesKeyword({ title: "春日耳钉", content: "银色材质" }, "材质"), true);
+assert.equal(utils.matchesKeyword({ title: "春日耳钉", content: "银色材质" }, "SILVER"), false);
+assert.equal(utils.matchesKeyword({ title: "春日耳钉", content: "silver" }, "SILVER"), true);
 assert.equal(utils.extractCoverUrl(detailRoot), "https://img.example/cover-full.jpg");
 assert.deepEqual(JSON.parse(JSON.stringify(utils.extractDetailData(detailRoot))), {
   title: "笔记标题",
@@ -134,6 +139,11 @@ assert.equal(
   ).点赞,
   0
 );
+assert.equal(feishuUtils.getFeishuImportBlockMessage([
+  { content: "" },
+  { content: "", detailStatus: "done" },
+  { content: "", detailStatus: "error" },
+]), "");
 assert.equal(
   feishuUtils.fileNameFromImageUrl("https://img.example/path/cover.webp?x=1", "image/webp"),
   "cover.webp"
