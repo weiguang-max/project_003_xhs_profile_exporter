@@ -146,6 +146,7 @@
       author: row.author || state.author || "",
       noteForm: row.noteForm || "图文",
       likes: Number.isFinite(row.likes) ? row.likes : 0,
+      publishTime: String(row.publishTime || ""),
       url: row.url || "",
       content: String(row.content || ""),
       coverUrl: String(row.coverUrl || row.cover || ""),
@@ -228,13 +229,14 @@
       作者: row.author,
       笔记形式: row.noteForm,
       点赞: row.likes,
+      发布时间: row.publishTime,
       原文链接: row.url,
       正文: row.content,
       封面链接: row.coverUrl,
     }));
     const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(values, { header: ["标题", "作者", "笔记形式", "点赞", "原文链接", "正文", "封面链接"] });
-    worksheet["!cols"] = [{ wch: 42 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 72 }, { wch: 60 }, { wch: 72 }];
+    const worksheet = XLSX.utils.json_to_sheet(values, { header: ["标题", "作者", "笔记形式", "点赞", "发布时间", "原文链接", "正文", "封面链接"] });
+    worksheet["!cols"] = [{ wch: 42 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 72 }, { wch: 60 }, { wch: 72 }];
     XLSX.utils.book_append_sheet(workbook, worksheet, "小红书笔记");
     const base64 = XLSX.write(workbook, { bookType: "xlsx", type: "base64" });
     const filename = `${safeFilenamePart(state.author || rows[0].author, "小红书博主")}_${rows.length}.xlsx`;
@@ -328,7 +330,7 @@
       const hasContent = Boolean(String(row.content || "").trim());
       const status = row.detailStatus === "capturing" ? "抓取中..." : row.detailStatus === "done" && hasContent ? "正文已抓取" : row.detailStatus === "error" || row.detailStatus === "done" ? "正文抓取失败" : "";
       const cover = row.cover || row.coverUrl ? `<img class="thumb" src="${escapeHtml(row.cover || row.coverUrl)}" alt="">` : '<div class="thumb"></div>';
-      return `<article class="item" data-note-url="${escapeHtml(row.url)}"><div class="rank">${index + 1}</div>${cover}<div class="meta"><div class="note-title" title="${title}">${title}</div><div class="note-author">${author}</div><div class="note-likes">${escapeHtml(row.noteForm || "图文")} · 点赞数: ${escapeHtml(likes)}${status ? ` · ${escapeHtml(status)}` : ""}</div></div><button class="delete" type="button" data-delete-url="${escapeHtml(row.url)}">删除</button></article>`;
+      return `<article class="item" data-note-url="${escapeHtml(row.url)}"><div class="rank">${index + 1}</div>${cover}<div class="meta"><div class="note-title" title="${title}">${title}</div><div class="note-author">${author}</div><div class="note-likes">${escapeHtml(row.noteForm || "图文")} · 点赞数: ${escapeHtml(likes)} · 发布时间: ${escapeHtml(row.publishTime || "-")}${status ? ` · ${escapeHtml(status)}` : ""}</div></div><button class="delete" type="button" data-delete-url="${escapeHtml(row.url)}">删除</button></article>`;
     }).join("");
   }
 

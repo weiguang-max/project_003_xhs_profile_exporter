@@ -262,6 +262,7 @@
         url,
         cover,
         coverUrl: cover,
+        publishTime: "",
         content: "",
         detailStatus: "idle",
         detailError: "",
@@ -488,6 +489,7 @@
             content: data.content || "",
             coverUrl: data.coverUrl || row.coverUrl || row.cover || "",
             cover: data.coverUrl || row.coverUrl || row.cover || row.cover,
+            publishTime: data.publishTime || row.publishTime || "",
             detailStatus: "done",
             detailError: "",
           };

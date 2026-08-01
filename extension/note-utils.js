@@ -50,6 +50,12 @@
     return "";
   }
 
+  function extractPublishTime(root) {
+    if (!root) return "";
+    const dateNode = root.querySelector(".bottom-container .date");
+    return dateNode ? String(dateNode.textContent || "").trim() : "";
+  }
+
   function extractDetailData(root) {
     if (!root) return null;
     const titleNode = root.querySelector("#detail-title");
@@ -57,6 +63,7 @@
       title: cleanText(titleNode ? titleNode.textContent : ""),
       content: extractDetailText(root),
       coverUrl: extractCoverUrl(root),
+      publishTime: extractPublishTime(root),
     };
   }
 
@@ -97,6 +104,7 @@
     extractDetailText,
     detailContentReady,
     extractCoverUrl,
+    extractPublishTime,
     extractDetailData,
     matchesKeyword,
     clickPointFromElement,

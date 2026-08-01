@@ -20,6 +20,7 @@
       作者: row.author,
       笔记形式: row.noteForm,
       点赞: Number.isFinite(row.likes) ? row.likes : 0,
+      发布时间: row.publishTime || "",
       原文链接: originalLink,
       正文: row.content,
     };

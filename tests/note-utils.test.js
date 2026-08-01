@@ -39,6 +39,7 @@ const detailRoot = {
   },
   querySelector(selector) {
     if (selector === "#detail-title") return { textContent: "笔记标题" };
+    if (selector === ".bottom-container .date") return { textContent: "07-02" };
     return null;
   },
 };
@@ -52,10 +53,13 @@ assert.equal(utils.matchesKeyword({ title: "春日耳钉", content: "银色材�
 assert.equal(utils.matchesKeyword({ title: "春日耳钉", content: "银色材质" }, "SILVER"), false);
 assert.equal(utils.matchesKeyword({ title: "春日耳钉", content: "silver" }, "SILVER"), true);
 assert.equal(utils.extractCoverUrl(detailRoot), "https://img.example/cover-full.jpg");
+assert.equal(utils.extractPublishTime(detailRoot), "07-02");
+assert.equal(utils.extractPublishTime({ querySelector: () => null }), "");
 assert.deepEqual(JSON.parse(JSON.stringify(utils.extractDetailData(detailRoot))), {
   title: "笔记标题",
   content: "第一段\n第二段",
   coverUrl: "https://img.example/cover-full.jpg",
+  publishTime: "07-02",
 });
 
 assert.deepEqual(
@@ -117,6 +121,7 @@ assert.deepEqual(
       noteForm: "图文",
       likes: 12,
       content: "正文",
+      publishTime: "07-02",
     },
     { text: "https://xhs.example/note", link: "https://xhs.example/note" },
     [{ file_token: "file-token-1", name: "cover.webp" }]
@@ -128,6 +133,7 @@ assert.deepEqual(
     点赞: 12,
     原文链接: { text: "https://xhs.example/note", link: "https://xhs.example/note" },
     正文: "正文",
+    发布时间: "07-02",
     封面: [{ file_token: "file-token-1", name: "cover.webp" }],
   }
 );

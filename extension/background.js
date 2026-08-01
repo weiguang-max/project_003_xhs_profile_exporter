@@ -4,7 +4,7 @@ importScripts("feishu-utils.js");
 
 const FEISHU_API = "https://open.feishu.cn/open-apis";
 const FEISHU_BATCH_SIZE = 500;
-const REQUIRED_FIELDS = ["标题", "作者", "笔记形式", "点赞", "原文链接", "正文", "封面"];
+const REQUIRED_FIELDS = ["标题", "作者", "笔记形式", "点赞", "发布时间", "原文链接", "正文", "封面"];
 const FEISHU_URL_FIELD_TYPE = 15;
 const DEBUGGER_PROTOCOL_VERSION = "1.3";
 const FEISHU_UTILS = globalThis.XHS_FEISHU_UTILS;
@@ -252,6 +252,7 @@ function uniqueRows(rows) {
       author: row.author || "",
       noteForm: row.noteForm || "图文",
       likes: Number.isFinite(row.likes) ? row.likes : 0,
+      publishTime: String(row.publishTime || ""),
       url,
       content: String(row.content || ""),
       coverUrl: String(row.coverUrl || ""),
