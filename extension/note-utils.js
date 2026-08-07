@@ -40,12 +40,47 @@
     return Boolean(root && root.querySelectorAll("#detail-desc .note-text").length);
   }
 
+  function imageUrlFromElement(element) {
+    if (!element) return "";
+    const directUrl =
+      element.currentSrc ||
+      element.src ||
+      (typeof element.getAttribute === "function" && element.getAttribute("src")) ||
+      (typeof element.getAttribute === "function" && element.getAttribute("data-src")) ||
+      "";
+    if (directUrl) return String(directUrl);
+
+    const background = element.style && (element.style.backgroundImage || element.style.background || "");
+    const match = String(background).match(/url\(["']?(.*?)["']?\)/);
+    return match ? match[1] : "";
+  }
+
+  function extractCoverUrlFromSlide(slide) {
+    if (!slide) return "";
+    const candidates = [
+      slide,
+      typeof slide.querySelector === "function" ? slide.querySelector(".note-slider-img") : null,
+      typeof slide.querySelector === "function" ? slide.querySelector("img") : null,
+    ];
+    for (const candidate of candidates) {
+      const url = imageUrlFromElement(candidate);
+      if (url) return url;
+    }
+    return "";
+  }
+
   function extractCoverUrl(root) {
     if (!root) return "";
+    const firstSlide = root.querySelector(
+      '#noteContainer .note-slider .swiper-slide-active:not(.swiper-slide-duplicate), #noteContainer .note-slider .swiper-slide[data-swiper-slide-index="0"]:not(.swiper-slide-duplicate)'
+    );
+    const firstSlideUrl = extractCoverUrlFromSlide(firstSlide);
+    if (firstSlideUrl) return firstSlideUrl;
+
     const images = root.querySelectorAll("#noteContainer .media-container img");
     for (const image of images) {
-      const url = image.currentSrc || image.src || image.getAttribute("src") || "";
-      if (url) return String(url);
+      const url = imageUrlFromElement(image);
+      if (url) return url;
     }
     return "";
   }

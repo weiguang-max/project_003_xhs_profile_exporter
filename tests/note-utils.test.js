@@ -31,8 +31,9 @@ const detailRoot = {
     }
     if (selector === "#noteContainer .media-container img") {
       return [
-        { currentSrc: "https://img.example/cover-full.jpg", src: "https://img.example/cover-thumb.jpg" },
+        { currentSrc: "https://img.example/last.jpg", src: "https://img.example/last-thumb.jpg" },
         { currentSrc: "https://img.example/second.jpg", src: "https://img.example/second-thumb.jpg" },
+        { currentSrc: "https://img.example/cover-full.jpg", src: "https://img.example/cover-thumb.jpg" },
       ];
     }
     return [];
@@ -40,6 +41,19 @@ const detailRoot = {
   querySelector(selector) {
     if (selector === "#detail-title") return { textContent: "笔记标题" };
     if (selector === ".bottom-container .date") return { textContent: "07-02" };
+    if (
+      selector ===
+      '#noteContainer .note-slider .swiper-slide-active:not(.swiper-slide-duplicate), #noteContainer .note-slider .swiper-slide[data-swiper-slide-index="0"]:not(.swiper-slide-duplicate)'
+    ) {
+      return {
+        querySelector(query) {
+          if (query === ".note-slider-img" || query === "img") {
+            return { currentSrc: "https://img.example/cover-full.jpg", src: "https://img.example/cover-thumb.jpg" };
+          }
+          return null;
+        },
+      };
+    }
     return null;
   },
 };
