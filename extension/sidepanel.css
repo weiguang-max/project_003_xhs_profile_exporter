@@ -32,6 +32,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .primary { width: 100%; height: 38px; margin-top: 11px; border: 0; border-radius: 8px; color: #fff; background: #007aff; font-size: 13px; font-weight: 700; box-shadow: 0 7px 16px rgba(0,122,255,.2); }
 .toolbar { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 5px; margin: 10px 0 7px; }
 .small, .toolbar select { width: 100%; min-width: 0; height: 30px; padding: 0 5px; border: 1px solid rgba(60,60,67,.14); border-radius: 7px; color: #1d1d1f; background: rgba(255,255,255,.9); font-size: 11px; font-weight: 650; white-space: nowrap; }
+.toolbar select { text-align: center; text-align-last: center; }
 .small.active { color: #fff; border-color: #007aff; background: #007aff; }
 .message { min-height: 17px; margin: 7px 2px 0; color: #6e6e73; text-align: center; font-size: 12px; line-height: 1.45; }
 .message.error { color: #ff3b30; }

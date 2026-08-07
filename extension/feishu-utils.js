@@ -15,13 +15,16 @@
   }
 
   function buildFeishuRecordFields(row, originalLink, coverAttachment) {
+    const originalLinkValue = originalLink && typeof originalLink === "object" && originalLink.link
+      ? { ...originalLink, text: "原文链接" }
+      : originalLink;
     const fields = {
       标题: row.title,
       作者: row.author,
       笔记形式: row.noteForm,
       点赞: Number.isFinite(row.likes) ? row.likes : 0,
       发布时间: row.publishTime || "",
-      原文链接: originalLink,
+      原文链接: originalLinkValue,
       正文: row.content,
     };
     if (coverAttachment) fields[COVER_ATTACHMENT_FIELD_NAME] = coverAttachment;

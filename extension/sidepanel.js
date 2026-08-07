@@ -47,6 +47,7 @@
     feishuAppSecret: $("feishuAppSecret"),
     feishuBitableUrl: $("feishuBitableUrl"),
     saveFeishu: $("saveFeishu"),
+    openFeishuBitable: $("openFeishuBitable"),
     feishuMessage: $("feishuMessage"),
   };
 
@@ -266,6 +267,22 @@
     els.feishuMessage.textContent = "飞书配置已保存。";
   }
 
+  async function openFeishuBitable() {
+    const url = cleanText(els.feishuBitableUrl.value);
+    if (!url) {
+      els.feishuMessage.textContent = "请先填写飞书多维表格链接。";
+      return;
+    }
+    try {
+      const parsed = new URL(url);
+      if (!/^https?:$/.test(parsed.protocol)) throw new Error("链接格式无效。");
+      await chrome.tabs.create({ url });
+      els.feishuMessage.textContent = "已打开飞书多维表格。";
+    } catch (error) {
+      els.feishuMessage.textContent = error.message || "打开飞书多维表格失败。";
+    }
+  }
+
   async function importFeishu() {
     const rows = rowsForExternalUse();
     const data = await chrome.storage.local.get("feishuConfig");
@@ -346,6 +363,7 @@
   els.export.addEventListener("click", exportExcel);
   els.importFeishu.addEventListener("click", importFeishu);
   els.saveFeishu.addEventListener("click", () => saveFeishuConfig().catch((error) => { els.feishuMessage.textContent = error.message; }));
+  els.openFeishuBitable.addEventListener("click", openFeishuBitable);
   els.minLikes.addEventListener("input", () => { state.minLikes = Number.parseInt(els.minLikes.value, 10) || 0; render(); });
   els.keyword.addEventListener("input", () => { state.keyword = els.keyword.value; render(); });
   els.typeFilter.addEventListener("change", () => { state.typeFilter = els.typeFilter.value; render(); });

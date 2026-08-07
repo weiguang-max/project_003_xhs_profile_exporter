@@ -40,6 +40,13 @@ const feishuSandbox = {
 feishuSandbox.globalThis = feishuSandbox;
 vm.runInNewContext(feishuSource, feishuSandbox, { filename: "feishu-utils.js" });
 const feishuUtils = feishuSandbox.XHS_FEISHU_UTILS || {};
+const sidepanelHtml = fs.readFileSync(path.join(__dirname, "../extension/sidepanel.html"), "utf8");
+const sidepanelSource = fs.readFileSync(path.join(__dirname, "../extension/sidepanel.js"), "utf8");
+const sidepanelCss = fs.readFileSync(path.join(__dirname, "../extension/sidepanel.css"), "utf8");
+
+assert.match(sidepanelHtml, /id="openFeishuBitable"/);
+assert.match(sidepanelSource, /chrome\.tabs\.create\(\{ url \}\)/);
+assert.match(sidepanelCss, /\.toolbar select[\s\S]*text-align-last:\s*center/);
 
 assert.equal(
   utils.noteIdFromUrl("https://www.xiaohongshu.com/user/profile/author/6a2d40180000000036000abb?xsec_token=test"),
@@ -167,7 +174,7 @@ assert.deepEqual(
     作者: "作者",
     笔记形式: "图文",
     点赞: 12,
-    原文链接: { text: "https://xhs.example/note", link: "https://xhs.example/note" },
+    原文链接: { text: "原文链接", link: "https://xhs.example/note" },
     正文: "正文",
     发布时间: "07-02",
     封面: [{ file_token: "file-token-1", name: "cover.webp" }],
