@@ -195,13 +195,14 @@ async function downloadCoverImage(url) {
   if (!blob.size) {
     throw new Error("封面图片为空。");
   }
-  if (blob.size > 20 * 1024 * 1024) {
-    throw new Error("封面图片超过飞书单文件 20 MB 限制。");
+  const jpegBlob = await FEISHU_UTILS.convertImageBlobToJpeg(blob);
+  if (jpegBlob.size > 20 * 1024 * 1024) {
+    throw new Error("封面图片转换后超过飞书单文件 20 MB 限制。");
   }
 
   return {
-    blob,
-    fileName: FEISHU_UTILS.fileNameFromImageUrl(url, contentType),
+    blob: jpegBlob,
+    fileName: FEISHU_UTILS.jpegFileNameFromImageUrl(url),
   };
 }
 

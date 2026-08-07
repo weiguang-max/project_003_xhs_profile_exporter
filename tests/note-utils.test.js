@@ -14,7 +14,29 @@ const utils = sandbox.XHS_NOTE_UTILS;
 
 const feishuSourcePath = path.join(__dirname, "../extension/feishu-utils.js");
 const feishuSource = fs.existsSync(feishuSourcePath) ? fs.readFileSync(feishuSourcePath, "utf8") : "";
-const feishuSandbox = { globalThis: null, URL };
+const drawCalls = [];
+const fakeBitmap = { width: 2, height: 3, close() { drawCalls.push(["close"]); } };
+const fakeContext = {
+  fillStyle: "",
+  fillRect(...args) { drawCalls.push(["fillRect", ...args]); },
+  drawImage(...args) { drawCalls.push(["drawImage", ...args]); },
+};
+const fakeCanvas = {
+  getContext() { return fakeContext; },
+  convertToBlob(options) {
+    drawCalls.push(["convertToBlob", options]);
+    return Promise.resolve({ type: "image/jpeg", size: 42 });
+  },
+};
+const feishuSandbox = {
+  globalThis: null,
+  URL,
+  createImageBitmap: async () => fakeBitmap,
+  OffscreenCanvas: function OffscreenCanvas(width, height) {
+    drawCalls.push(["canvas", width, height]);
+    return fakeCanvas;
+  },
+};
 feishuSandbox.globalThis = feishuSandbox;
 vm.runInNewContext(feishuSource, feishuSandbox, { filename: "feishu-utils.js" });
 const feishuUtils = feishuSandbox.XHS_FEISHU_UTILS || {};
@@ -172,5 +194,25 @@ assert.equal(
   feishuUtils.fileNameFromImageUrl("not-a-url", "image/jpeg"),
   "xiaohongshu-cover.jpeg"
 );
+assert.equal(
+  feishuUtils.jpegFileNameFromImageUrl("https://img.example/path/cover.webp?x=1"),
+  "cover.jpg"
+);
 
-console.log("note-utils tests passed");
+(async () => {
+  const converted = await feishuUtils.convertImageBlobToJpeg({ type: "image/webp", size: 10 });
+  assert.equal(converted.type, "image/jpeg");
+  assert.equal(converted.size, 42);
+  assert.deepEqual(drawCalls[0], ["canvas", 2, 3]);
+  assert.deepEqual(drawCalls[1], ["fillRect", 0, 0, 2, 3]);
+  assert.equal(drawCalls[2][0], "drawImage");
+  assert.equal(drawCalls[2][1], fakeBitmap);
+  assert.deepEqual(drawCalls[2].slice(2), [0, 0, 2, 3]);
+  assert.equal(drawCalls[3][0], "convertToBlob");
+  assert.deepEqual(JSON.parse(JSON.stringify(drawCalls[3][1])), { type: "image/jpeg", quality: 0.9 });
+  assert.deepEqual(drawCalls[4], ["close"]);
+  console.log("note-utils tests passed");
+})().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

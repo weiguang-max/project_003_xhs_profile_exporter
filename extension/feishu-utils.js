@@ -45,11 +45,40 @@
     return `xiaohongshu-cover.${fallbackExtension.replace(/[^a-z0-9]/gi, "") || "jpeg"}`;
   }
 
+  function jpegFileNameFromImageUrl(rawUrl) {
+    return fileNameFromImageUrl(rawUrl, "image/jpeg").replace(/\.[^.]+$/, ".jpg");
+  }
+
+  async function convertImageBlobToJpeg(blob) {
+    if (!blob || !blob.size) {
+      throw new Error("封面图片为空。");
+    }
+
+    const bitmap = await globalThis.createImageBitmap(blob);
+    try {
+      const canvas = new globalThis.OffscreenCanvas(bitmap.width, bitmap.height);
+      const context = canvas.getContext("2d");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, bitmap.width, bitmap.height);
+      context.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height);
+
+      const jpeg = await canvas.convertToBlob({ type: "image/jpeg", quality: 0.9 });
+      if (!jpeg || !jpeg.size) {
+        throw new Error("封面图片转换 JPG 失败。");
+      }
+      return jpeg;
+    } finally {
+      if (typeof bitmap.close === "function") bitmap.close();
+    }
+  }
+
   globalThis.XHS_FEISHU_UTILS = {
     findCoverAttachmentField,
     buildAttachmentValue,
     buildFeishuRecordFields,
     getFeishuImportBlockMessage,
     fileNameFromImageUrl,
+    jpegFileNameFromImageUrl,
+    convertImageBlobToJpeg,
   };
 })();
