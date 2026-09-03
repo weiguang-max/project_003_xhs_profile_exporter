@@ -98,7 +98,7 @@ async function resolveBitableAppToken({ token, appToken, wikiToken }) {
   return node.obj_token;
 }
 
-async function readExistingUrls({ token, appToken, tableId }) {
+async function readExistingNoteKeys({ token, appToken, tableId }) {
   const existing = new Set();
   let pageToken = "";
 
@@ -121,7 +121,8 @@ async function readExistingUrls({ token, appToken, tableId }) {
     const data = payload.data || {};
     for (const item of data.items || []) {
       const url = extractFeishuUrl(item.fields && item.fields["原文链接"]);
-      if (url) existing.add(url);
+      const key = FEISHU_UTILS.noteKeyFromUrl(url);
+      if (key) existing.add(key);
     }
 
     pageToken = data.has_more ? data.page_token || "" : "";
@@ -246,8 +247,9 @@ function uniqueRows(rows) {
   const result = [];
   for (const row of rows || []) {
     const url = typeof row.url === "string" ? row.url.trim() : "";
-    if (!url || seen.has(url)) continue;
-    seen.add(url);
+    const key = FEISHU_UTILS.noteKeyFromUrl(url);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
     result.push({
       title: row.title || "",
       author: row.author || "",
@@ -338,8 +340,8 @@ async function importFeishu(message) {
     return { created: 0, skipped: 0, total: 0 };
   }
 
-  const existingUrls = await readExistingUrls({ token, appToken, tableId });
-  const newRows = rows.filter((row) => !existingUrls.has(row.url));
+  const existingNoteKeys = await readExistingNoteKeys({ token, appToken, tableId });
+  const newRows = rows.filter((row) => !existingNoteKeys.has(FEISHU_UTILS.noteKeyFromUrl(row.url)));
   const result = newRows.length
     ? await batchCreateRecords({ token, appToken, tableId, rows: newRows, fieldTypes })
     : { created: 0, coverUploaded: 0, coverFailures: [] };

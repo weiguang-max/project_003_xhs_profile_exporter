@@ -144,6 +144,18 @@ assert.equal(
   feishuUtils.findCoverAttachmentField(new Map([["封面", 17]])),
   "封面"
 );
+const noteUrlFromSearch = "https://www.xiaohongshu.com/explore/6a910420000000002501a389?xsec_token=search-token&xsec_source=pc_search&m_source=mengfanwetab";
+const noteUrlFromUser = "https://www.xiaohongshu.com/explore/6a910420000000002501a389?xsec_token=user-token&xsec_source=pc_user";
+assert.equal(feishuUtils.noteKeyFromUrl(noteUrlFromSearch), feishuUtils.noteKeyFromUrl(noteUrlFromUser));
+assert.equal(feishuUtils.noteKeyFromUrl(noteUrlFromSearch), "note:6a910420000000002501a389");
+assert.equal(
+  feishuUtils.noteKeyFromUrl("https://www.xiaohongshu.com/user/profile/author/6a910420000000002501a389?xsec_token=another-token"),
+  "note:6a910420000000002501a389"
+);
+assert.equal(
+  feishuUtils.noteKeyFromUrl("https://example.com/article?id=1#section"),
+  "url:https://example.com/article?id=1"
+);
 assert.equal(
   feishuUtils.findCoverAttachmentField(new Map([["封面", 1]])),
   ""

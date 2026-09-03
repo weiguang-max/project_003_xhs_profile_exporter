@@ -3,6 +3,8 @@
 (() => {
   const COVER_ATTACHMENT_FIELD_NAME = "封面";
   const ATTACHMENT_FIELD_TYPE = 17;
+  const XHS_NOTE_PATH_RE = /^\/(?:explore|discovery\/item)\/([^/?#]+)/;
+  const XHS_PROFILE_NOTE_PATH_RE = /^\/user\/profile\/[^/?#]+\/([^/?#]+)/;
 
   function findCoverAttachmentField(fieldTypes) {
     return fieldTypes && fieldTypes.get(COVER_ATTACHMENT_FIELD_NAME) === ATTACHMENT_FIELD_TYPE
@@ -33,6 +35,22 @@
 
   function getFeishuImportBlockMessage(rows) {
     return Array.isArray(rows) && rows.length ? "" : "没有可导入的数据。";
+  }
+
+  function noteKeyFromUrl(rawUrl) {
+    const value = String(rawUrl || "").trim();
+    if (!value) return "";
+    try {
+      const url = new URL(value);
+      if (url.hostname === "www.xiaohongshu.com") {
+        const match = url.pathname.match(XHS_NOTE_PATH_RE) || url.pathname.match(XHS_PROFILE_NOTE_PATH_RE);
+        if (match) return `note:${match[1]}`;
+      }
+      url.hash = "";
+      return `url:${url.href}`;
+    } catch (_) {
+      return `url:${value}`;
+    }
   }
 
   function fileNameFromImageUrl(rawUrl, contentType) {
@@ -80,6 +98,7 @@
     buildAttachmentValue,
     buildFeishuRecordFields,
     getFeishuImportBlockMessage,
+    noteKeyFromUrl,
     fileNameFromImageUrl,
     jpegFileNameFromImageUrl,
     convertImageBlobToJpeg,
