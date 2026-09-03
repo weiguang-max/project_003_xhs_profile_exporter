@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>微光定制小红书采集工具</title>
+    <link rel="stylesheet" href="sidepanel.css">
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div class="brand"><span class="mark">✦</span><span>微光定制小红书采集工具</span></div>
+        <span class="tab-state" id="tabState">连接中</span>
+      </header>
+
+      <nav class="tabs" aria-label="功能页面">
+        <button class="tab active" data-page="collector">博主采集</button>
+        <button class="tab" data-page="feishu">飞书配置</button>
+      </nav>
+
+      <section class="page active" data-page-section="collector">
+        <section class="card summary">
+          <div id="summary">已采集 0 条候选笔记</div>
+          <div class="muted" id="scrollStatus">先打开小红书博主主页</div>
+        </section>
+
+        <section class="card controls">
+          <p class="hint" id="pageHint">请打开小红书博主主页采集全部笔记</p>
+          <label class="field keyword-field"><span>关键词筛选</span><input id="keyword" type="text" placeholder="标题或正文关键词"></label>
+          <label class="field"><span>筛选点赞数≥</span><input id="minLikes" type="number" min="0" value="0"><span>的笔记</span></label>
+          <label class="field"><span>候选笔记数</span><input id="limit" type="number" min="1" max="5000" value="300"><span>条</span></label>
+          <button class="primary" id="start">开始采集博主笔记</button>
+          <div class="message" id="message"></div>
+        </section>
+
+        <div class="toolbar">
+          <select id="typeFilter" title="内容类型"><option>全部</option><option>图文</option><option>视频</option></select>
+          <button class="small" id="sort">点赞排序</button>
+          <button class="small" id="capture">抓取正文</button>
+          <button class="small" id="clear">清空</button>
+          <button class="small" id="export">导出 Excel</button>
+          <button class="small" id="importFeishu">导入飞书</button>
+          <button class="small" id="openFeishuBitable">打开多维表格</button>
+        </div>
+
+        <section class="list" id="list"><div class="empty">暂无采集结果</div></section>
+      </section>
+
+      <section class="page" data-page-section="feishu">
+        <section class="card feishu">
+          <h2>飞书多维表格配置</h2>
+          <input id="feishuAppId" type="text" placeholder="FEISHU_APP_ID">
+          <input id="feishuAppSecret" type="password" placeholder="FEISHU_APP_SECRET">
+          <input id="feishuBitableUrl" type="text" placeholder="飞书多维表格完整链接">
+          <p class="muted">链接必须包含 table 参数；密钥只保存在本机扩展存储中。</p>
+          <button class="small" id="saveFeishu">保存配置</button>
+          <div class="message" id="feishuMessage"></div>
+        </section>
+      </section>
+    </main>
+    <script src="vendor/xlsx.full.min.js"></script>
+    <script src="feishu-utils.js"></script>
+    <script src="note-utils.js"></script>
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

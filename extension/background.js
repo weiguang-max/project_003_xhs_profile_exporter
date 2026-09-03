@@ -1,29 +1,27 @@
 "use strict";
 
+importScripts("feishu-utils.js");
+
 const FEISHU_API = "https://open.feishu.cn/open-apis";
 const FEISHU_BATCH_SIZE = 500;
-const REQUIRED_FIELDS = ["标题", "作者", "笔记形式", "点赞", "原文链接"];
+const REQUIRED_FIELDS = ["标题", "作者", "笔记形式", "点赞", "发布时间", "原文链接", "正文", "封面"];
 const FEISHU_URL_FIELD_TYPE = 15;
+const DEBUGGER_PROTOCOL_VERSION = "1.3";
+const FEISHU_UTILS = globalThis.XHS_FEISHU_UTILS;
 
-async function sendToggle(tab) {
-  if (!tab || !tab.id || !tab.url || !tab.url.startsWith("https://www.xiaohongshu.com/")) {
-    return;
-  }
-
-  try {
-    await chrome.tabs.sendMessage(tab.id, { type: "XHS_TOGGLE_PANEL" });
-  } catch (_) {
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ["vendor/xlsx.full.min.js", "content.js"],
-    });
-    await chrome.tabs.sendMessage(tab.id, { type: "XHS_TOGGLE_PANEL" });
-  }
+async function configureSidePanel() {
+  await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 }
 
-chrome.action.onClicked.addListener((tab) => {
-  sendToggle(tab);
+chrome.runtime.onInstalled.addListener(() => {
+  configureSidePanel().catch(() => {});
 });
+
+chrome.runtime.onStartup.addListener(() => {
+  configureSidePanel().catch(() => {});
+});
+
+configureSidePanel().catch(() => {});
 
 function parseBitableUrl(rawUrl) {
   let url;
@@ -100,7 +98,7 @@ async function resolveBitableAppToken({ token, appToken, wikiToken }) {
   return node.obj_token;
 }
 
-async function readExistingUrls({ token, appToken, tableId }) {
+async function readExistingNoteKeys({ token, appToken, tableId }) {
   const existing = new Set();
   let pageToken = "";
 
@@ -123,7 +121,8 @@ async function readExistingUrls({ token, appToken, tableId }) {
     const data = payload.data || {};
     for (const item of data.items || []) {
       const url = extractFeishuUrl(item.fields && item.fields["原文链接"]);
-      if (url) existing.add(url);
+      const key = FEISHU_UTILS.noteKeyFromUrl(url);
+      if (key) existing.add(key);
     }
 
     pageToken = data.has_more ? data.page_token || "" : "";
@@ -176,8 +175,71 @@ async function readFieldTypes({ token, appToken, tableId }) {
   if (missing.length) {
     throw new Error(`飞书表缺少字段：${missing.join("、")}`);
   }
+  if (!FEISHU_UTILS.findCoverAttachmentField(fields)) {
+    throw new Error("飞书字段“封面”必须是附件类型，请新建附件字段后重试。");
+  }
 
   return fields;
+}
+
+async function downloadCoverImage(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`封面图片下载失败：HTTP ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const contentType = (response.headers.get("content-type") || blob.type || "").split(";", 1)[0].trim().toLowerCase();
+  if (!contentType.startsWith("image/")) {
+    throw new Error("封面链接返回的不是图片。");
+  }
+  if (!blob.size) {
+    throw new Error("封面图片为空。");
+  }
+  const jpegBlob = await FEISHU_UTILS.convertImageBlobToJpeg(blob);
+  if (jpegBlob.size > 20 * 1024 * 1024) {
+    throw new Error("封面图片转换后超过飞书单文件 20 MB 限制。");
+  }
+
+  return {
+    blob: jpegBlob,
+    fileName: FEISHU_UTILS.jpegFileNameFromImageUrl(url),
+  };
+}
+
+async function uploadBitableImage({ token, appToken, blob, fileName }) {
+  const form = new FormData();
+  form.append("file_name", fileName);
+  form.append("parent_type", "bitable_file");
+  form.append("parent_node", appToken);
+  form.append("size", String(blob.size));
+  form.append("file", blob, fileName);
+
+  const response = await fetch(`${FEISHU_API}/drive/v1/medias/upload_all`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (_) {
+    // handled below
+  }
+
+  if (!response.ok) {
+    throw new Error(`飞书图片上传失败：HTTP ${response.status}`);
+  }
+  if (!payload || payload.code !== 0) {
+    throw new Error((payload && payload.msg) || "飞书图片上传失败。");
+  }
+
+  const fileToken = payload.data && payload.data.file_token;
+  if (!fileToken) {
+    throw new Error("飞书图片上传未返回 file_token。");
+  }
+  return fileToken;
 }
 
 function uniqueRows(rows) {
@@ -185,14 +247,18 @@ function uniqueRows(rows) {
   const result = [];
   for (const row of rows || []) {
     const url = typeof row.url === "string" ? row.url.trim() : "";
-    if (!url || seen.has(url)) continue;
-    seen.add(url);
+    const key = FEISHU_UTILS.noteKeyFromUrl(url);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
     result.push({
       title: row.title || "",
       author: row.author || "",
       noteForm: row.noteForm || "图文",
-      likes: Number.isFinite(row.likes) ? row.likes : "",
+      likes: Number.isFinite(row.likes) ? row.likes : 0,
+      publishTime: String(row.publishTime || ""),
       url,
+      content: String(row.content || ""),
+      coverUrl: String(row.coverUrl || ""),
     });
   }
   return result;
@@ -207,17 +273,40 @@ function formatOriginalLink(url, fieldTypes) {
 
 async function batchCreateRecords({ token, appToken, tableId, rows, fieldTypes }) {
   let created = 0;
+  let coverUploaded = 0;
+  const coverFailures = [];
+
   for (let index = 0; index < rows.length; index += FEISHU_BATCH_SIZE) {
     const chunk = rows.slice(index, index + FEISHU_BATCH_SIZE);
-    const records = chunk.map((row) => ({
-      fields: {
-        标题: row.title,
-        作者: row.author,
-        笔记形式: row.noteForm,
-        点赞: row.likes,
-        原文链接: formatOriginalLink(row.url, fieldTypes),
-      },
-    }));
+    const records = [];
+
+    for (const row of chunk) {
+      let coverAttachment = null;
+
+      if (row.coverUrl) {
+        try {
+          const image = await downloadCoverImage(row.coverUrl);
+          const fileToken = await uploadBitableImage({
+            token,
+            appToken,
+            blob: image.blob,
+            fileName: image.fileName,
+          });
+          coverAttachment = FEISHU_UTILS.buildAttachmentValue(fileToken, image.fileName);
+          coverUploaded += 1;
+        } catch (error) {
+          coverFailures.push({ title: row.title, error: error.message || String(error) });
+        }
+      }
+
+      records.push({
+        fields: FEISHU_UTILS.buildFeishuRecordFields(
+          row,
+          formatOriginalLink(row.url, fieldTypes),
+          coverAttachment,
+        ),
+      });
+    }
 
     const payload = await feishuRequest(
       `/bitable/v1/apps/${encodeURIComponent(appToken)}/tables/${encodeURIComponent(tableId)}/records/batch_create`,
@@ -232,7 +321,7 @@ async function batchCreateRecords({ token, appToken, tableId, rows, fieldTypes }
     );
     created += ((payload.data || {}).records || records).length;
   }
-  return created;
+  return { created, coverUploaded, coverFailures };
 }
 
 async function importFeishu(message) {
@@ -251,21 +340,78 @@ async function importFeishu(message) {
     return { created: 0, skipped: 0, total: 0 };
   }
 
-  const existingUrls = await readExistingUrls({ token, appToken, tableId });
-  const newRows = rows.filter((row) => !existingUrls.has(row.url));
-  const created = newRows.length
+  const existingNoteKeys = await readExistingNoteKeys({ token, appToken, tableId });
+  const newRows = rows.filter((row) => !existingNoteKeys.has(FEISHU_UTILS.noteKeyFromUrl(row.url)));
+  const result = newRows.length
     ? await batchCreateRecords({ token, appToken, tableId, rows: newRows, fieldTypes })
-    : 0;
+    : { created: 0, coverUploaded: 0, coverFailures: [] };
 
   return {
-    created,
+    created: result.created,
     skipped: rows.length - newRows.length,
     total: rows.length,
+    coverUploaded: result.coverUploaded,
+    coverFailures: result.coverFailures,
   };
+}
+
+async function dispatchRealMouseClick(tabId, point) {
+  if (!Number.isFinite(point && point.x) || !Number.isFinite(point && point.y)) {
+    throw new Error("笔记卡片坐标无效。");
+  }
+
+  const target = { tabId };
+  let attached = false;
+  try {
+    await chrome.debugger.attach(target, DEBUGGER_PROTOCOL_VERSION);
+    attached = true;
+    await chrome.debugger.sendCommand(target, "Input.dispatchMouseEvent", {
+      type: "mouseMoved",
+      x: point.x,
+      y: point.y,
+      button: "none",
+      buttons: 0,
+      pointerType: "mouse",
+    });
+    await chrome.debugger.sendCommand(target, "Input.dispatchMouseEvent", {
+      type: "mousePressed",
+      x: point.x,
+      y: point.y,
+      button: "left",
+      buttons: 1,
+      clickCount: 1,
+      pointerType: "mouse",
+    });
+    await chrome.debugger.sendCommand(target, "Input.dispatchMouseEvent", {
+      type: "mouseReleased",
+      x: point.x,
+      y: point.y,
+      button: "left",
+      buttons: 0,
+      clickCount: 1,
+      pointerType: "mouse",
+    });
+  } finally {
+    if (attached) {
+      await chrome.debugger.detach(target).catch(() => {});
+    }
+  }
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message) return false;
+
+  if (message.type === "XHS_REAL_MOUSE_CLICK") {
+    const tabId = _sender && _sender.tab ? _sender.tab.id : 0;
+    if (!tabId) {
+      sendResponse({ ok: false, error: "无法识别当前小红书标签页。" });
+      return false;
+    }
+    dispatchRealMouseClick(tabId, message.point)
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => sendResponse({ ok: false, error: error.message || String(error) }));
+    return true;
+  }
 
   if (message.type === "XHS_IMPORT_FEISHU") {
     importFeishu(message)

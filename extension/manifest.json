@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "小红书主页笔记导出",
-  "version": "0.1.0",
-  "description": "采集小红书用户主页公开展示的笔记卡片，并导出 Excel。",
-  "permissions": ["activeTab", "scripting", "downloads", "storage"],
-  "host_permissions": ["https://www.xiaohongshu.com/*", "https://open.feishu.cn/*"],
+  "version": "0.5.1",
+  "description": "采集小红书用户主页公开展示的笔记卡片，抓取详情正文和封面，并导出 Excel 或导入飞书。",
+  "permissions": ["activeTab", "tabs", "scripting", "downloads", "storage", "debugger", "sidePanel"],
+  "host_permissions": ["https://www.xiaohongshu.com/*", "https://*.xhscdn.com/*", "https://open.feishu.cn/*"],
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -23,10 +23,13 @@
       "128": "icons/icon128.png"
     }
   },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "content_scripts": [
     {
       "matches": ["https://www.xiaohongshu.com/*"],
-      "js": ["vendor/xlsx.full.min.js", "content.js"],
+      "js": ["note-utils.js", "content.js"],
       "run_at": "document_idle"
     }
   ]
